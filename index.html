@@ -14,7 +14,7 @@
         <p class="subtitle">Перезапуск энергии за 7 дней</p>
 
         <div class="cta-wrap">
-          <a class="cta" href="#start">Начать 7-дневный цикл</a>
+          <button class="cta" id="start-btn" type="button">Начать 7-дневный цикл</button>
         </div>
       </section>
 
@@ -41,6 +41,75 @@
           <p>Режим сна, паузы и ритуалы, которые возвращают ресурс каждый день.</p>
         </article>
       </section>
+
+      <section class="practices" aria-labelledby="practices-title">
+        <div class="section-head">
+          <p class="eyebrow">Evidence-informed</p>
+          <h2 id="practices-title">Проверенные практики</h2>
+        </div>
+        <div class="practice-grid">
+          <article class="practice-card">
+            <p class="badge">Питание · A</p>
+            <h3>Регулярные приёмы пищи из цельных продуктов</h3>
+            <p>2–4 приёма пищи в устойчивом ритме снижают «энергетические качели».</p>
+          </article>
+          <article class="practice-card">
+            <p class="badge">Питание · A</p>
+            <h3>Базовая гидратация</h3>
+            <p>Пей достаточно в течение дня; дегидратация часто маскируется под усталость.</p>
+          </article>
+          <article class="practice-card">
+            <p class="badge">Среда · A</p>
+            <h3>Утренний дневной свет 15–30 мин</h3>
+            <p>Помогает синхронизировать циркадный ритм и облегчает вечернее засыпание.</p>
+          </article>
+          <article class="practice-card">
+            <p class="badge">Среда · A</p>
+            <h3>Микропаузи от сидения</h3>
+            <p>1–3 минуты движения каждые 30–60 минут уменьшают утомление.</p>
+          </article>
+          <article class="practice-card">
+            <p class="badge">Восстановление · A</p>
+            <h3>Стабильный сон 7+ часов</h3>
+            <p>Фиксированное время подъёма — главный якорь дневной энергии.</p>
+          </article>
+          <article class="practice-card">
+            <p class="badge">Восстановление · A</p>
+            <h3>150+ минут аэробной активности в неделю</h3>
+            <p>Регулярная умеренная активность повышает выносливость и устойчивость к усталости.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="evidence" aria-labelledby="evidence-title">
+        <h2 id="evidence-title">На чём основано</h2>
+        <p>
+          Мы используем практики, подтверждённые гайдлайнами и обзорными исследованиями.
+          Если база ограничена, это явно помечено как низкая уверенность.
+        </p>
+        <ul>
+          <li><a href="https://www.who.int/publications/i/item/9789240015128" target="_blank" rel="noopener noreferrer">WHO: Physical Activity Guidelines (2020)</a></li>
+          <li><a href="https://www.cdc.gov/sleep/about/index.html" target="_blank" rel="noopener noreferrer">CDC: About Sleep</a></li>
+          <li><a href="https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/the-eatwell-guide/" target="_blank" rel="noopener noreferrer">NHS: The Eatwell Guide</a></li>
+          <li><a href="https://www.bmj.com/content/384/bmj-2023-077310" target="_blank" rel="noopener noreferrer">BMJ 2024: Ultra-processed foods umbrella review</a></li>
+          <li><a href="https://bmcmedicine.biomedcentral.com/articles/10.1186/s12916-017-0791-y" target="_blank" rel="noopener noreferrer">SMILES RCT (BMC Medicine, 2017)</a></li>
+        </ul>
+      </section>
     </main>
+
+    <script>
+      const startBtn = document.getElementById('start-btn');
+      const startSection = document.getElementById('start');
+
+      if (startBtn && startSection) {
+        startBtn.addEventListener('click', () => {
+          startSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          startSection.classList.remove('is-highlighted');
+          void startSection.offsetWidth;
+          startSection.classList.add('is-highlighted');
+          history.replaceState(null, '', '#start');
+        });
+      }
+    </script>
   </body>
 </html>

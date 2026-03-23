@@ -130,14 +130,21 @@ h1 {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 26px;
 }
 
-.card {
+.card,
+.practice-card,
+.evidence,
+.practices {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 18px;
-  padding: 24px;
   box-shadow: var(--shadow);
+}
+
+.card {
+  padding: 24px;
 }
 
 .card h2 {
@@ -145,10 +152,78 @@ h1 {
   font-size: 1.15rem;
 }
 
-.card p {
+.card p,
+.practice-card p,
+.evidence p,
+.evidence li {
   margin: 0;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.practices {
+  padding: 24px;
+  margin-bottom: 26px;
+}
+
+.section-head h2 {
+  margin: 0 0 16px;
+  font-size: clamp(1.2rem, 2.8vw, 1.6rem);
+}
+
+.practice-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.practice-card {
+  padding: 18px;
+}
+
+.practice-card h3 {
+  margin: 8px 0;
+  font-size: 1rem;
+}
+
+.badge {
+  display: inline-block;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.evidence {
+  padding: 24px;
+}
+
+.evidence h2 {
+  margin: 0 0 10px;
+  font-size: clamp(1.2rem, 2.8vw, 1.6rem);
+}
+
+.evidence p {
+  margin-bottom: 10px;
+}
+
+.evidence ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.evidence li + li {
+  margin-top: 8px;
+}
+
+.evidence a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.evidence a:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 860px) {
@@ -169,12 +244,15 @@ h1 {
     padding: 16px 20px;
   }
 
-  .start {
+  .start,
+  .practices,
+  .evidence {
     padding: 20px;
     margin-bottom: 22px;
   }
 
-  .cards {
+  .cards,
+  .practice-grid {
     grid-template-columns: 1fr;
   }
 }
