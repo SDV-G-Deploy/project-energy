@@ -3,113 +3,185 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PROJECT ENERGY</title>
+    <title>PROJECT ENERGY — польза в 1 клик</title>
+    <meta
+      name="description"
+      content="PROJECT ENERGY — micro-product с пользой в 1 клик: 60-секундные ритуалы, мягкий прогресс и локальный трекер энергии."
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="page">
-      <section class="hero">
-        <p class="eyebrow">Calm Minimal</p>
-        <h1>PROJECT ENERGY</h1>
-        <p class="subtitle">Перезапуск энергии за 7 дней</p>
+    <main class="app">
+      <header class="hero card">
+        <p class="eyebrow">PROJECT ENERGY · evidence-informed</p>
+        <h1>Когда сложно начать — начни в 1 клик</h1>
+        <p class="subtitle">
+          Без длинных инструкций. Нажми, получи мгновенный результат и сделай короткий
+          60-секундный шаг для энергии.
+        </p>
 
-        <div class="cta-wrap">
-          <button class="cta" id="start-btn" type="button">Начать 7-дневный цикл</button>
-        </div>
-      </section>
+        <button id="one-click-cta" class="btn btn-primary" type="button">⚡ Польза в 1 клик</button>
+        <p class="micro-hint">Первый видимый результат обычно за 5–10 секунд.</p>
+      </header>
 
-      <section class="start" id="start" aria-labelledby="start-title">
-        <h2 id="start-title">Твой старт сегодня</h2>
-        <ul class="checklist">
-          <li><strong>Движение:</strong> 20–30 минут ходьбы или лёгкой тренировки.</li>
-          <li><strong>Питание:</strong> 3 сбалансированных приёма пищи и достаточно воды.</li>
-          <li><strong>Восстановление:</strong> 10 минут паузы без экрана + отход ко сну вовремя.</li>
-        </ul>
-      </section>
-
-      <section class="cards" aria-label="Основные блоки">
-        <article class="card">
-          <h2>Питание</h2>
-          <p>Простые шаги, чтобы стабилизировать энергию и убрать перегрузки.</p>
-        </article>
-        <article class="card">
-          <h2>Среда</h2>
-          <p>Настройка пространства для фокуса, спокойствия и устойчивого ритма.</p>
-        </article>
-        <article class="card">
-          <h2>Восстановление</h2>
-          <p>Режим сна, паузы и ритуалы, которые возвращают ресурс каждый день.</p>
-        </article>
-      </section>
-
-      <section class="practices" aria-labelledby="practices-title">
+      <section class="dashboard card" aria-labelledby="dashboard-title">
         <div class="section-head">
-          <p class="eyebrow">Evidence-informed</p>
-          <h2 id="practices-title">Проверенные практики</h2>
+          <h2 id="dashboard-title">Твой прогресс сегодня</h2>
+          <p class="status-chip" id="status-chip">Готов к мягкому старту</p>
         </div>
-        <div class="practice-grid">
-          <article class="practice-card">
-            <p class="badge">Питание · A</p>
-            <h3>Регулярные приёмы пищи из цельных продуктов</h3>
-            <p>2–4 приёма пищи в устойчивом ритме снижают «энергетические качели».</p>
+
+        <div class="stats-grid" aria-label="Статистика">
+          <article class="stat">
+            <p>Старты сегодня</p>
+            <strong id="starts-value">0</strong>
           </article>
-          <article class="practice-card">
-            <p class="badge">Питание · A</p>
-            <h3>Базовая гидратация</h3>
-            <p>Пей достаточно в течение дня; дегидратация часто маскируется под усталость.</p>
+          <article class="stat">
+            <p>XP</p>
+            <strong id="xp-value">0</strong>
           </article>
-          <article class="practice-card">
-            <p class="badge">Среда · A</p>
-            <h3>Утренний дневной свет 15–30 мин</h3>
-            <p>Помогает синхронизировать циркадный ритм и облегчает вечернее засыпание.</p>
+          <article class="stat">
+            <p>Серия дней</p>
+            <strong id="streak-value">0</strong>
           </article>
-          <article class="practice-card">
-            <p class="badge">Среда · A</p>
-            <h3>Микропаузи от сидения</h3>
-            <p>1–3 минуты движения каждые 30–60 минут уменьшают утомление.</p>
-          </article>
-          <article class="practice-card">
-            <p class="badge">Восстановление · A</p>
-            <h3>Стабильный сон 7+ часов</h3>
-            <p>Фиксированное время подъёма — главный якорь дневной энергии.</p>
-          </article>
-          <article class="practice-card">
-            <p class="badge">Восстановление · A</p>
-            <h3>150+ минут аэробной активности в неделю</h3>
-            <p>Регулярная умеренная активность повышает выносливость и устойчивость к усталости.</p>
-          </article>
+        </div>
+
+        <div class="progress-wrap">
+          <svg class="progress-ring" viewBox="0 0 120 120" aria-hidden="true">
+            <circle cx="60" cy="60" r="44" class="ring-bg"></circle>
+            <circle
+              id="progress-circle"
+              cx="60"
+              cy="60"
+              r="44"
+              class="ring-value"
+              transform="rotate(-90 60 60)"
+            ></circle>
+          </svg>
+          <div class="progress-copy">
+            <p class="progress-label" id="progress-label">0%</p>
+            <p class="reward-line" id="reward-line">
+              Нажми «Польза в 1 клик», чтобы получить первый видимый результат.
+            </p>
+          </div>
         </div>
       </section>
 
-      <section class="evidence" aria-labelledby="evidence-title">
+      <section class="ritual card" id="ritual-section" aria-labelledby="ritual-title">
+        <div class="section-head">
+          <h2 id="ritual-title">Сделай сейчас (60 сек)</h2>
+          <button class="btn btn-text" id="action-shuffle-btn" type="button">Другой микрошаг</button>
+        </div>
+
+        <article class="action-card" aria-live="polite">
+          <p class="badge" id="action-pillar">—</p>
+          <h3 id="action-title">Загрузка шага...</h3>
+          <p class="action-why" id="action-why"></p>
+          <ol class="action-steps" id="action-steps"></ol>
+
+          <div class="action-meta">
+            <span id="action-duration">~60 сек</span>
+            <span id="action-evidence">Evidence: Medium</span>
+          </div>
+
+          <div class="action-controls">
+            <button class="btn btn-primary" id="ritual-start-btn" type="button">Сделай сейчас (60 сек)</button>
+            <button class="btn btn-secondary" id="ritual-complete-btn" type="button">Отметить выполненным ✅</button>
+          </div>
+
+          <div class="timer" id="timer-wrap" hidden>
+            <div class="timer-track" aria-hidden="true">
+              <div class="timer-fill" id="timer-fill"></div>
+            </div>
+            <p class="timer-text" id="timer-text">Осталось: 60 сек</p>
+          </div>
+        </article>
+      </section>
+
+      <section class="energy card" aria-labelledby="energy-title">
+        <h2 id="energy-title">Супер-простой трекер энергии</h2>
+        <p class="energy-hint">Шкала 1–5: 1 = разряжен(а), 5 = ресурсно.</p>
+
+        <div class="energy-grid">
+          <div class="energy-row">
+            <label for="energy-before">До</label>
+            <input id="energy-before" type="range" min="1" max="5" step="1" value="3" />
+            <output id="energy-before-value" for="energy-before">3</output>
+            <button class="btn btn-secondary" id="save-before-btn" type="button">Сохранить «до»</button>
+          </div>
+
+          <div class="energy-row">
+            <label for="energy-after">После</label>
+            <input id="energy-after" type="range" min="1" max="5" step="1" value="3" />
+            <output id="energy-after-value" for="energy-after">3</output>
+            <button class="btn btn-secondary" id="save-after-btn" type="button">Сохранить «после»</button>
+          </div>
+        </div>
+
+        <p class="energy-feedback" id="energy-feedback" aria-live="polite">
+          Шкала 1–5: 1 = совсем разряжен(а), 5 = ресурсно.
+        </p>
+      </section>
+
+      <section class="tomorrow card" aria-labelledby="tomorrow-title">
+        <h2 id="tomorrow-title">Завтра без давления</h2>
+        <p id="tomorrow-step">Завтра: открой страницу и сделай один микрошаг без давления.</p>
+        <button class="btn btn-primary" id="return-intent-btn" type="button">
+          Я вернусь завтра на 1 шаг
+        </button>
+        <p id="return-intent-status" aria-live="polite">
+          Отметь намерение, чтобы снять лишнее решение на завтра.
+        </p>
+      </section>
+
+      <section class="reentry card" id="reentry-card" hidden>
+        <h2>Мягкое возвращение</h2>
+        <p id="reentry-text">Ничего не сломано. Возвращаемся с одного шага.</p>
+        <button class="btn btn-secondary" id="reentry-btn" type="button">⚡ Вернуться мягко (1 шаг)</button>
+      </section>
+
+      <section class="evidence card" aria-labelledby="evidence-title">
         <h2 id="evidence-title">На чём основано</h2>
         <p>
-          Мы используем практики, подтверждённые гайдлайнами и обзорными исследованиями.
-          Если база ограничена, это явно помечено как низкая уверенность.
+          Основа — практики по сну, активности, среде и питанию из гайдлайнов и обзоров.
+          Если доказательность ограничена, это помечается отдельно.
         </p>
         <ul>
-          <li><a href="https://www.who.int/publications/i/item/9789240015128" target="_blank" rel="noopener noreferrer">WHO: Physical Activity Guidelines (2020)</a></li>
-          <li><a href="https://www.cdc.gov/sleep/about/index.html" target="_blank" rel="noopener noreferrer">CDC: About Sleep</a></li>
-          <li><a href="https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/the-eatwell-guide/" target="_blank" rel="noopener noreferrer">NHS: The Eatwell Guide</a></li>
-          <li><a href="https://www.bmj.com/content/384/bmj-2023-077310" target="_blank" rel="noopener noreferrer">BMJ 2024: Ultra-processed foods umbrella review</a></li>
-          <li><a href="https://bmcmedicine.biomedcentral.com/articles/10.1186/s12916-017-0791-y" target="_blank" rel="noopener noreferrer">SMILES RCT (BMC Medicine, 2017)</a></li>
+          <li>
+            <a href="https://www.who.int/publications/i/item/9789240015128" target="_blank" rel="noopener noreferrer"
+              >WHO: Physical Activity Guidelines</a
+            >
+          </li>
+          <li>
+            <a href="https://www.cdc.gov/sleep/about/index.html" target="_blank" rel="noopener noreferrer">CDC: About Sleep</a>
+          </li>
+          <li>
+            <a
+              href="https://www.nhs.uk/live-well/eat-well/food-guidelines-and-food-labels/the-eatwell-guide/"
+              target="_blank"
+              rel="noopener noreferrer"
+              >NHS: The Eatwell Guide</a
+            >
+          </li>
+          <li>
+            <a href="https://www.bmj.com/content/384/bmj-2023-077310" target="_blank" rel="noopener noreferrer"
+              >BMJ 2024: Ultra-processed foods umbrella review</a
+            >
+          </li>
         </ul>
+      </section>
+
+      <section class="metrics card" aria-labelledby="metrics-title">
+        <h2 id="metrics-title">Локальные метрики (без бэкенда)</h2>
+        <p>
+          События сохраняются только в твоём браузере (`localStorage`): activation, completion,
+          time-to-first-value, return intent.
+        </p>
+        <button class="btn btn-text" id="export-metrics-btn" type="button">Скачать JSON метрик</button>
       </section>
     </main>
 
-    <script>
-      const startBtn = document.getElementById('start-btn');
-      const startSection = document.getElementById('start');
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-      if (startBtn && startSection) {
-        startBtn.addEventListener('click', () => {
-          startSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          startSection.classList.remove('is-highlighted');
-          void startSection.offsetWidth;
-          startSection.classList.add('is-highlighted');
-          history.replaceState(null, '', '#start');
-        });
-      }
-    </script>
+    <script src="app.js"></script>
   </body>
 </html>
