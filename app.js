@@ -8,6 +8,13 @@
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const WEEKLY_WINDOW_DAYS = 7;
 
+  const TRACKED_EVENTS = Object.freeze({
+    HERO_CTA_CLICK: 'hero_cta_click',
+    RITUAL_START: 'ritual_start',
+    RITUAL_COMPLETE: 'ritual_complete',
+    POST_ACTION_CLICK: 'post_action_click',
+  });
+
   const FALLBACK_ACTIONS = {
     actions: [
       {
@@ -99,6 +106,13 @@
     nutrition: 'Если есть ресурс, повтори ещё один мягкий шаг про питание или воду.',
     environment: 'Если есть ресурс, сделай следующий шаг для фокуса в среде.',
     recovery: 'Если есть ресурс, выбери ещё один очень мягкий шаг на восстановление.',
+  };
+
+  const RETURN_WINDOW_BY_PILLAR = {
+    nutrition: 'Вернись через 3–4 часа или в следующий приём пищи.',
+    environment: 'Вернись после следующего фокус-блока или при первом отвлечении.',
+    recovery: 'Вернись при первом признаке перегруза или вечером перед сном.',
+    any: 'Вернись в ближайший спад ресурса: достаточно одного шага.',
   };
 
   const DEFAULT_STATE = {
@@ -218,6 +232,7 @@
 
   function cacheRefs() {
     refs.oneClickBtn = document.getElementById('one-click-cta');
+    refs.heroScenarioButtons = Array.from(document.querySelectorAll('[data-hero-scenario]'));
     refs.howItWorksBtn = document.getElementById('how-it-works-btn');
     refs.onboardingCard = document.getElementById('onboarding-card');
     refs.onboardingStartBtn = document.getElementById('onboarding-start-btn');
@@ -231,6 +246,9 @@
     refs.progressCircle = document.getElementById('progress-circle');
     refs.statusChip = document.getElementById('status-chip');
     refs.rewardLine = document.getElementById('reward-line');
+    refs.proofTtfvValue = document.getElementById('proof-ttfv-value');
+    refs.proofStartsTotal = document.getElementById('proof-starts-total');
+    refs.proofCompletionsTotal = document.getElementById('proof-completions-total');
 
     refs.ritualSection = document.getElementById('ritual-section');
     refs.actionPillar = document.getElementById('action-pillar');
@@ -254,7 +272,9 @@
     refs.recapDone = document.getElementById('recap-done');
     refs.recapEnergy = document.getElementById('recap-energy');
     refs.recapNext = document.getElementById('recap-next');
+    refs.recapReturn = document.getElementById('recap-return');
     refs.recapNextBtn = document.getElementById('recap-next-btn');
+    refs.recapPlanBtn = document.getElementById('recap-plan-btn');
 
     refs.energyBefore = document.getElementById('energy-before');
     refs.energyAfter = document.getElementById('energy-after');
@@ -264,6 +284,7 @@
     refs.saveAfterBtn = document.getElementById('save-after-btn');
     refs.energyFeedback = document.getElementById('energy-feedback');
 
+    refs.tomorrowSection = document.getElementById('tomorrow-section');
     refs.tomorrowStep = document.getElementById('tomorrow-step');
     refs.returnIntentBtn = document.getElementById('return-intent-btn');
     refs.returnIntentStatus = document.getElementById('return-intent-status');
@@ -285,7 +306,13 @@
   }
 
   function bindEvents() {
-    refs.oneClickBtn?.addEventListener('click', handleActivationClick);
+    refs.oneClickBtn?.addEventListener('click', () => handleActivationClick({ source: 'hero_primary' }));
+    refs.heroScenarioButtons?.forEach((button) => {
+      button.addEventListener('click', () => {
+        handleHeroScenarioClick(button.dataset.heroScenario);
+      });
+    });
+
     refs.howItWorksBtn?.addEventListener('click', toggleOnboardingFromUi);
     refs.onboardingStartBtn?.addEventListener('click', handleOnboardingStart);
     refs.onboardingSkipBtn?.addEventListener('click', () => closeOnboarding('skip'));
@@ -293,6 +320,7 @@
     refs.ritualStartBtn?.addEventListener('click', handleRitualStart);
     refs.ritualCompleteBtn?.addEventListener('click', () => completeRitual(false));
     refs.recapNextBtn?.addEventListener('click', handleDoAnotherCycle);
+    refs.recapPlanBtn?.addEventListener('click', handleRecapPlanClick);
     refs.actionShuffleBtn?.addEventListener('click', () => {
       switchAction();
       renderAll();
@@ -300,7 +328,7 @@
 
     refs.actionModeButtons?.forEach((button) => {
       button.addEventListener('click', () => {
-        setActionMode(button.dataset.actionMode);
+        setActionMode(button.dataset.actionMode, { source: 'mode_chip' });
       });
     });
 
@@ -413,7 +441,7 @@
       return;
     }
 
-    handleActivationClick();
+    handleActivationClick({ source: 'onboarding_start' });
   }
 
   function renderOnboardingToggle() {
@@ -424,8 +452,15 @@
     refs.howItWorksBtn.textContent = isOpen ? 'Скрыть объяснение' : 'Как это работает?';
   }
 
-  function handleActivationClick() {
+  function handleActivationClick(options = {}) {
     syncTodayState();
+
+    const source = typeof options.source === 'string' ? options.source : 'hero_primary';
+    const scenarioMode = normalizeActionMode(options.scenarioMode || 'any');
+
+    if (scenarioMode !== 'any' && scenarioMode !== state.todayActionMode) {
+      setActionMode(scenarioMode, { silent: true, source });
+    }
 
     if (!state.onboardingSeen) {
       markOnboardingSeen('activation');
@@ -468,7 +503,14 @@
     const message = `${phrase} +1 старт · прогресс ${state.progress}%`;
     state.lastReward = message;
 
-    trackEvent('activation', { firstStartToday, startsToday: state.startsToday, progress: state.progress });
+    trackEvent(TRACKED_EVENTS.HERO_CTA_CLICK, {
+      source,
+      firstStartToday,
+      startsToday: state.startsToday,
+      progress: state.progress,
+      mode: state.todayActionMode,
+      scenarioMode: scenarioMode !== 'any' ? scenarioMode : null,
+    });
 
     saveAll();
     renderAll();
@@ -476,11 +518,38 @@
     announce(message);
   }
 
+  function handleHeroScenarioClick(mode) {
+    syncTodayState();
+
+    const scenarioMode = normalizeActionMode(mode);
+    const scenarioLabel = ACTION_MODES[scenarioMode]?.label || 'Выбранный сценарий';
+
+    if (state.startsToday < 1) {
+      handleActivationClick({ source: 'hero_scenario', scenarioMode });
+      return;
+    }
+
+    setActionMode(scenarioMode, { silent: true, source: 'hero_scenario' });
+
+    trackEvent(TRACKED_EVENTS.HERO_CTA_CLICK, {
+      source: 'hero_scenario',
+      firstStartToday: false,
+      startsToday: state.startsToday,
+      progress: state.progress,
+      mode: state.todayActionMode,
+      scenarioMode,
+    });
+
+    renderAll();
+    revealRitualSection();
+    announce(`Сценарий «${scenarioLabel}». Готов 60-секундный reset.`);
+  }
+
   function handleRitualStart() {
     syncTodayState();
 
     if (state.startsToday < 1) {
-      announce('Сначала нажми «Польза в 1 клик». Это занимает секунду.');
+      announce('Сначала нажми «Запустить reset за 60 сек». Это занимает секунду.');
       refs.oneClickBtn?.focus();
       return;
     }
@@ -506,7 +575,7 @@
     state.ritualStartedAt = startedAt;
     state.ritualDurationSec = durationSec;
 
-    trackEvent('mini_ritual_start', { actionId: action.id, durationSec, todayCompletions: state.todayCompletions || 0 });
+    trackEvent(TRACKED_EVENTS.RITUAL_START, { actionId: action.id, durationSec, todayCompletions: state.todayCompletions || 0 });
     saveState();
 
     startTimer(durationSec, { startedAt });
@@ -558,7 +627,7 @@
     const message = `${completionPhrase} +12 XP. Выполнено сегодня: ${state.todayCompletions}.`.trim();
     state.lastReward = `${message}${streakPhrase}`.trim();
 
-    trackEvent('mini_ritual_complete', {
+    trackEvent(TRACKED_EVENTS.RITUAL_COMPLETE, {
       actionId: completedAction?.id || state.todayActionId,
       autoCompleted,
       streak: state.streak,
@@ -585,19 +654,61 @@
       return;
     }
 
+    trackEvent(TRACKED_EVENTS.POST_ACTION_CLICK, {
+      action: 'do_another_cycle',
+      placement: 'completion_recap',
+      todayCompletions: state.todayCompletions,
+      mode: state.todayActionMode,
+    });
+
     if (state.startsToday < 1) {
-      handleActivationClick();
+      handleActivationClick({ source: 'post_completion_next' });
     }
 
     switchAction({ silent: true });
     renderAll();
     revealRitualSection();
     handleRitualStart();
+  }
 
-    trackEvent('recap_next_cycle', {
+  function handleRecapPlanClick() {
+    syncTodayState();
+
+    trackEvent(TRACKED_EVENTS.POST_ACTION_CLICK, {
+      action: 'plan_return',
+      placement: 'completion_recap',
+      hasAnchor: Boolean(state.todayPlanAnchor),
+      hasReturnIntent: Boolean(state.todayReturnIntent),
       todayCompletions: state.todayCompletions,
-      mode: state.todayActionMode,
     });
+
+    const createdIntent =
+      !state.todayReturnIntent &&
+      activateReturnIntent({
+        source: 'recap_post_action',
+        anchor: state.todayPlanAnchor || null,
+        tomorrowStep: refs.tomorrowStep?.textContent || '',
+      });
+
+    if (createdIntent) {
+      saveAll();
+      renderStats();
+      renderReturnIntent();
+      renderCompletionRecap();
+    }
+
+    if (refs.tomorrowSection && typeof refs.tomorrowSection.scrollIntoView === 'function') {
+      refs.tomorrowSection.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' });
+    }
+
+    refs.returnIntentBtn?.focus();
+
+    if (state.todayPlanAnchor) {
+      const label = PLAN_ANCHORS[state.todayPlanAnchor]?.label || 'выбранное время';
+      announce(`План возврата: ${label.toLowerCase()}. При желании измени якорь.`);
+    } else {
+      announce('Выбери якорь в блоке «Завтра без давления», чтобы зафиксировать когда вернуться.');
+    }
   }
 
   function switchAction(options = {}) {
@@ -631,7 +742,7 @@
     }
   }
 
-  function setActionMode(mode) {
+  function setActionMode(mode, options = {}) {
     syncTodayState();
 
     const nextMode = normalizeActionMode(mode);
@@ -650,18 +761,25 @@
       stopTimer({ resetRitualState: true });
     }
 
-    trackEvent('action_mode_set', {
-      mode: nextMode,
-      modeChanged,
-      interrupted,
-      actionId: state.todayActionId,
-    });
+    if (!options.skipTrack) {
+      trackEvent('action_mode_set', {
+        mode: nextMode,
+        modeChanged,
+        interrupted,
+        actionId: state.todayActionId,
+        source: options.source || 'manual',
+      });
+    }
 
     saveState();
     renderActionModeSelector();
     renderActionCard();
     renderCompletionRecap();
     renderTomorrowStep();
+
+    if (options.silent) {
+      return;
+    }
 
     const baseMessage = modeConfig.toast || `Режим: ${modeConfig.label}`;
     announce(interrupted ? `${baseMessage} Таймер предыдущего шага остановлен.` : baseMessage);
@@ -731,6 +849,7 @@
     renderReturnIntent();
     renderPlanAnchors();
     renderStats();
+    renderCompletionRecap();
 
     if (state.todayPlanAnchor) {
       const anchorLabel = PLAN_ANCHORS[state.todayPlanAnchor]?.label || 'выбранным якорем';
@@ -770,6 +889,7 @@
     renderReturnIntent();
     renderPlanAnchors();
     renderStats();
+    renderCompletionRecap();
 
     const label = PLAN_ANCHORS[anchor]?.label || 'этот якорь';
 
@@ -804,7 +924,7 @@
 
   function handleReentryRestart() {
     hideReentryMessage();
-    handleActivationClick();
+    handleActivationClick({ source: 'reentry_restart' });
   }
 
   function startTimer(durationSec, options = {}) {
@@ -869,6 +989,7 @@
   function renderAll() {
     renderOnboardingToggle();
     renderStats();
+    renderTrustProof();
     renderActionModeSelector();
     renderActionCard();
     renderCompletionRecap();
@@ -895,7 +1016,7 @@
 
     if (refs.rewardLine) {
       refs.rewardLine.textContent =
-        state.lastReward || 'Нажми «Польза в 1 клик», чтобы получить первый видимый результат.';
+        state.lastReward || 'Нажми «Запустить reset за 60 сек», чтобы получить первый видимый результат.';
     }
 
     if (refs.statusChip) {
@@ -911,6 +1032,27 @@
     }
   }
 
+  function renderTrustProof() {
+    if (refs.proofStartsTotal) {
+      refs.proofStartsTotal.textContent = String(normalizeCount(state.startsTotal));
+    }
+
+    if (refs.proofCompletionsTotal) {
+      refs.proofCompletionsTotal.textContent = String(normalizeCount(metrics.miniRitualCompletions));
+    }
+
+    if (!refs.proofTtfvValue) return;
+
+    const ttfvMs = Number(metrics.firstValueMs || state.firstValueMs || 0);
+    if (Number.isFinite(ttfvMs) && ttfvMs > 0) {
+      const seconds = Math.max(1, Math.round(ttfvMs / 1000));
+      refs.proofTtfvValue.textContent = `~${seconds} сек`;
+      return;
+    }
+
+    refs.proofTtfvValue.textContent = 'цель ≤ 15 сек';
+  }
+
   function renderProgressRing(progress) {
     if (!refs.progressCircle) return;
 
@@ -923,15 +1065,23 @@
   }
 
   function renderActionModeSelector() {
-    if (!Array.isArray(refs.actionModeButtons) || !refs.actionModeButtons.length) return;
-
     const activeMode = normalizeActionMode(state.todayActionMode);
 
-    refs.actionModeButtons.forEach((button) => {
-      const mode = normalizeActionMode(button.dataset.actionMode);
-      const isActive = mode === activeMode;
-      button.setAttribute('aria-pressed', String(isActive));
-    });
+    if (Array.isArray(refs.actionModeButtons) && refs.actionModeButtons.length) {
+      refs.actionModeButtons.forEach((button) => {
+        const mode = normalizeActionMode(button.dataset.actionMode);
+        const isActive = mode === activeMode;
+        button.setAttribute('aria-pressed', String(isActive));
+      });
+    }
+
+    if (Array.isArray(refs.heroScenarioButtons) && refs.heroScenarioButtons.length) {
+      refs.heroScenarioButtons.forEach((button) => {
+        const scenarioMode = normalizeActionMode(button.dataset.heroScenario);
+        const isActive = scenarioMode === activeMode;
+        button.setAttribute('aria-pressed', String(isActive));
+      });
+    }
   }
 
   function renderActionCard() {
@@ -962,7 +1112,7 @@
       refs.ritualStartBtn.disabled = !canStart || inProgress;
 
       if (!canStart) {
-        refs.ritualStartBtn.textContent = 'Сначала «Польза в 1 клик»';
+        refs.ritualStartBtn.textContent = 'Сначала «Запустить reset»';
       } else if (running) {
         refs.ritualStartBtn.textContent = 'Шаг уже в процессе ⏱️';
       } else if (inProgress) {
@@ -1011,13 +1161,30 @@
     }
 
     if (refs.recapNext) {
-      refs.recapNext.textContent = `Следующий мягкий шаг: ${recap.nextStep || 'выбери ещё один короткий шаг и продолжай в спокойном темпе.'}`;
+      refs.recapNext.textContent = `Следующий лучший шаг: ${recap.nextStep || 'выбери ещё один короткий шаг и продолжай в спокойном темпе.'}`;
     }
 
+    if (refs.recapReturn) {
+      const recapAction = getActionById(recap.actionId) || getTodayAction();
+      refs.recapReturn.textContent = `Когда вернуться: ${buildReturnWindow(recapAction)}`;
+    }
+
+    const inProgress = hasRitualProgress();
+
     if (refs.recapNextBtn) {
-      const inProgress = hasRitualProgress();
       refs.recapNextBtn.disabled = inProgress;
-      refs.recapNextBtn.textContent = inProgress ? 'Шаг уже в процессе ⏱️' : 'Сделать ещё один';
+      refs.recapNextBtn.textContent = inProgress ? 'Шаг уже в процессе ⏱️' : 'Сделать ещё один сейчас';
+    }
+
+    if (refs.recapPlanBtn) {
+      refs.recapPlanBtn.disabled = inProgress;
+      if (inProgress) {
+        refs.recapPlanBtn.textContent = 'Сначала заверши текущий шаг';
+      } else if (state.todayPlanAnchor) {
+        refs.recapPlanBtn.textContent = 'Обновить когда вернуться';
+      } else {
+        refs.recapPlanBtn.textContent = 'Выбрать когда вернуться';
+      }
     }
   }
 
@@ -1338,6 +1505,7 @@
       energyAfter,
       energyDelta,
       nextStep: buildSoftNextStep(action),
+      returnWindow: buildReturnWindow(action),
     };
   }
 
@@ -1347,6 +1515,16 @@
       SOFT_NEXT_STEP_BY_PILLAR[pillar] ||
       'Если есть ресурс, сделай ещё один короткий шаг в спокойном темпе.'
     );
+  }
+
+  function buildReturnWindow(action) {
+    const anchor = PLAN_ANCHORS[normalizePlanAnchor(state.todayPlanAnchor)];
+    if (anchor) {
+      return `завтра ${anchor.intro} — достаточно одного шага.`;
+    }
+
+    const pillar = action?.pillar || state.lastCompletionRecap?.pillar || 'any';
+    return RETURN_WINDOW_BY_PILLAR[pillar] || RETURN_WINDOW_BY_PILLAR.any;
   }
 
   function syncRecapEnergyFromTodayValues() {
@@ -1360,6 +1538,7 @@
         ? recap.energyAfter - recap.energyBefore
         : null;
     recap.todayCompletions = normalizeCount(state.todayCompletions);
+    recap.returnWindow = buildReturnWindow(getActionById(recap.actionId) || getTodayAction());
 
     state.lastCompletionRecap = { ...recap };
   }
@@ -1419,7 +1598,8 @@
     const events = Array.isArray(metrics.events) ? metrics.events : [];
 
     events.forEach((event) => {
-      if (event?.type !== 'mini_ritual_complete') return;
+      const isCompletionEvent = event?.type === TRACKED_EVENTS.RITUAL_COMPLETE || event?.type === 'mini_ritual_complete';
+      if (!isCompletionEvent) return;
       if (!dateSet.has(event.date)) return;
       completionCountsFromMetrics.set(event.date, (completionCountsFromMetrics.get(event.date) || 0) + 1);
     });

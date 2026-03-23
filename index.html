@@ -3,24 +3,34 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>PROJECT ENERGY — польза в 1 клик</title>
+    <title>PROJECT ENERGY — reset за 60 секунд</title>
     <meta
       name="description"
-      content="PROJECT ENERGY — micro-product с пользой в 1 клик: 60-секундные ритуалы, мягкий прогресс и локальный трекер энергии."
+      content="PROJECT ENERGY — анти-прокрастинационный reset за 60 секунд: сценарные CTA, мягкий ритуал и локальный трекер энергии."
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="app">
       <header class="hero card">
-        <p class="eyebrow">PROJECT ENERGY · evidence-informed</p>
-        <h1>Когда сложно начать — начни в 1 клик</h1>
+        <p class="eyebrow">PROJECT ENERGY · anti-procrastination reset</p>
+        <h1>Анти-прокрастинационный reset за 60 секунд</h1>
         <p class="subtitle">
-          Без длинных инструкций. Нажми, получи мгновенный результат и сделай короткий
-          60-секундный шаг для энергии.
+          Один короткий шаг, когда тяжело начать, расфокус или упадок энергии.
+          Нажми — и получи первый ощутимый сдвиг без перегруза.
         </p>
 
-        <button id="one-click-cta" class="btn btn-primary" type="button">⚡ Польза в 1 клик</button>
+        <button id="one-click-cta" class="btn btn-primary" type="button">⚡ Запустить reset за 60 сек</button>
+
+        <div class="hero-scenarios" role="group" aria-label="Сценарии быстрого старта">
+          <p class="hero-scenarios-label">Что сейчас ближе:</p>
+          <div class="hero-scenarios-grid">
+            <button class="btn btn-scenario" data-hero-scenario="recovery" type="button" aria-pressed="false">Тяжело начать</button>
+            <button class="btn btn-scenario" data-hero-scenario="environment" type="button" aria-pressed="false">Расфокус</button>
+            <button class="btn btn-scenario" data-hero-scenario="nutrition" type="button" aria-pressed="false">Упадок энергии</button>
+          </div>
+        </div>
+
         <button
           id="how-it-works-btn"
           class="btn btn-text hero-help-btn"
@@ -30,7 +40,7 @@
         >
           Как это работает?
         </button>
-        <p class="micro-hint">Первый видимый результат обычно за 5–10 секунд.</p>
+        <p class="micro-hint">Первый видимый результат обычно за 5–15 секунд. Без регистрации и без стыда за пропуски.</p>
       </header>
 
       <section class="onboarding card" id="onboarding-card" aria-labelledby="onboarding-title" hidden>
@@ -47,6 +57,67 @@
         <div class="onboarding-actions">
           <button class="btn btn-primary" id="onboarding-start-btn" type="button">Начать сейчас</button>
           <button class="btn btn-secondary" id="onboarding-skip-btn" type="button">Пропустить</button>
+        </div>
+      </section>
+
+      <section class="trust card" id="trust-block" aria-labelledby="trust-title">
+        <div class="section-head trust-head">
+          <h2 id="trust-title">Кому подходит и почему можно доверять</h2>
+          <p class="status-chip">Без магии и давления</p>
+        </div>
+
+        <div class="trust-fit-grid">
+          <article class="trust-list">
+            <h3>Подходит, если:</h3>
+            <ul>
+              <li>сложно начать и нужен мягкий вход в задачу за 60 секунд;</li>
+              <li>часто уносит в отвлечения и нужен короткий reset фокуса;</li>
+              <li>хочешь отслеживать энергию без сложных таблиц и приложений.</li>
+            </ul>
+          </article>
+
+          <article class="trust-list trust-list-alert">
+            <h3>Не подходит, если:</h3>
+            <ul>
+              <li>нужна диагностика или лечение — это не медицинский сервис;</li>
+              <li>есть острые симптомы (боль в груди, одышка, обмороки);</li>
+              <li>ожидается «волшебный» результат без ежедневных микро-действий.</li>
+            </ul>
+          </article>
+        </div>
+
+        <div class="mini-proof" aria-label="Мини-доказательства">
+          <p class="mini-proof-title">Mini-proof (локально на этом устройстве)</p>
+          <div class="mini-proof-grid">
+            <article class="proof-item">
+              <strong id="proof-ttfv-value">цель ≤ 15 сек</strong>
+              <span>до первой пользы</span>
+            </article>
+            <article class="proof-item">
+              <strong id="proof-starts-total">0</strong>
+              <span>стартов</span>
+            </article>
+            <article class="proof-item">
+              <strong id="proof-completions-total">0</strong>
+              <span>завершений ритуала</span>
+            </article>
+          </div>
+        </div>
+
+        <div class="trust-faq" aria-label="Частые вопросы">
+          <h3>Короткий FAQ</h3>
+          <details>
+            <summary>Это медицинская программа?</summary>
+            <p>Нет. Это образовательный wellness-инструмент для микро-шагов и самонаблюдения.</p>
+          </details>
+          <details>
+            <summary>Когда почувствую эффект?</summary>
+            <p>Обычно первый микро-результат заметен в течение минуты. Устойчивый эффект — при регулярности.</p>
+          </details>
+          <details>
+            <summary>Куда уходят мои данные?</summary>
+            <p>Никуда. Состояние и события хранятся только в localStorage вашего браузера.</p>
+          </details>
         </div>
       </section>
 
@@ -90,7 +161,7 @@
           <div class="progress-copy">
             <p class="progress-label" id="progress-label">0%</p>
             <p class="reward-line" id="reward-line">
-              Нажми «Польза в 1 клик», чтобы получить первый видимый результат.
+              Нажми «Запустить reset за 60 сек», чтобы получить первый видимый результат.
             </p>
           </div>
         </div>
@@ -144,8 +215,12 @@
         </div>
         <p class="recap-row" id="recap-done">Сделано: —</p>
         <p class="recap-row" id="recap-energy">Энергия: —</p>
-        <p class="recap-row" id="recap-next">Следующий мягкий шаг: —</p>
-        <button class="btn btn-secondary" id="recap-next-btn" type="button">Сделать ещё один</button>
+        <p class="recap-row" id="recap-next">Следующий лучший шаг: —</p>
+        <p class="recap-row" id="recap-return">Когда вернуться: —</p>
+        <div class="recap-actions">
+          <button class="btn btn-primary" id="recap-next-btn" type="button">Сделать ещё один сейчас</button>
+          <button class="btn btn-secondary" id="recap-plan-btn" type="button">Запланировать возвращение</button>
+        </div>
       </section>
 
       <section class="energy card" aria-labelledby="energy-title">
@@ -173,7 +248,7 @@
         </p>
       </section>
 
-      <section class="tomorrow card" aria-labelledby="tomorrow-title">
+      <section class="tomorrow card" id="tomorrow-section" aria-labelledby="tomorrow-title">
         <h2 id="tomorrow-title">Завтра без давления</h2>
         <p id="tomorrow-step">Завтра: открой страницу и сделай один микрошаг без давления.</p>
 
@@ -265,8 +340,8 @@
       <section class="metrics card" aria-labelledby="metrics-title">
         <h2 id="metrics-title">Локальные метрики (без бэкенда)</h2>
         <p>
-          События сохраняются только в твоём браузере (`localStorage`): activation, completion,
-          time-to-first-value, return intent.
+          События сохраняются только в твоём браузере (`localStorage`): hero_cta_click,
+          ritual_start, ritual_complete, post_action_click.
         </p>
         <button class="btn btn-text" id="export-metrics-btn" type="button">Скачать JSON метрик</button>
       </section>
