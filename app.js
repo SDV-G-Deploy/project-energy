@@ -4,6 +4,7 @@
   const STORAGE_KEY = 'project-energy-state-v2';
   const METRICS_KEY = 'project-energy-metrics-v1';
   const SESSION_KEY = 'project-energy-session-v1';
+  const EXPERIMENTS_KEY = 'project-energy-experiments-v1';
   const sessionStartTs = Date.now();
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const WEEKLY_WINDOW_DAYS = 7;
@@ -13,6 +14,13 @@
     RITUAL_START: 'ritual_start',
     RITUAL_COMPLETE: 'ritual_complete',
     POST_ACTION_CLICK: 'post_action_click',
+    LEAD_CAPTURE_VIEW: 'lead_capture_view',
+    LEAD_CAPTURE_SUBMIT: 'lead_capture_submit',
+    LEAD_CAPTURE_SKIP: 'lead_capture_skip',
+    REACTIVATION_PROMPT_SHOWN: 'reactivation_prompt_shown',
+    REACTIVATION_PROMPT_ACTION: 'reactivation_prompt_action',
+    EXPERIMENT_EXPOSURE: 'experiment_exposure',
+    EXPERIMENT_GOAL: 'experiment_goal',
   });
 
   const FALLBACK_ACTIONS = {
@@ -102,6 +110,53 @@
     evening: { label: 'Перед сном', intro: 'перед сном' },
   };
 
+  const LEAD_CAPTURE_STATUS = Object.freeze({
+    IDLE: 'idle',
+    INVALID: 'invalid',
+    SUCCESS: 'success',
+    SKIP: 'skip',
+  });
+
+  const REACTIVATION_COPY = Object.freeze({
+    D1: {
+      title: 'D1 · Пауза 1 день',
+      message: 'Один день паузы — это нормально. Вернуться можно с одного очень лёгкого шага.',
+    },
+    D3: {
+      title: 'D3 · Пауза 3 дня',
+      message: 'Ритм просел, но не сломан. 60 секунд мягкого действия помогут вернуть инерцию.',
+    },
+    D7: {
+      title: 'D7 · Пауза 7+ дней',
+      message: 'Даже после длинной паузы всё можно перезапустить без давления: один микрошаг сейчас.',
+    },
+  });
+
+  const ACTIVE_EXPERIMENTS = Object.freeze({
+    heroHeadlineV1: {
+      id: 'hero_headline_v1',
+      variants: {
+        A: {
+          headline: 'Анти-прокрастинационный reset за 60 секунд',
+          subtitle:
+            'Один короткий шаг, когда тяжело начать, расфокус или упадок энергии. Нажми — и получи первый ощутимый сдвиг без перегруза.',
+        },
+        B: {
+          headline: '1 микрошаг — и ты снова в ритме за 60 секунд',
+          subtitle:
+            'Когда сил мало, важен не идеальный план, а мягкий старт. Нажми — и получи быстрый микро-сдвиг уже сейчас.',
+        },
+      },
+    },
+    heroCtaV1: {
+      id: 'hero_cta_copy_v1',
+      variants: {
+        A: '⚡ Запустить reset за 60 сек',
+        B: '⚡ Начать 1 микрошаг сейчас',
+      },
+    },
+  });
+
   const SOFT_NEXT_STEP_BY_PILLAR = {
     nutrition: 'Если есть ресурс, повтори ещё один мягкий шаг про питание или воду.',
     environment: 'Если есть ресурс, сделай следующий шаг для фокуса в среде.',
@@ -116,7 +171,7 @@
   };
 
   const DEFAULT_STATE = {
-    version: 2,
+    version: 3,
     startsTotal: 0,
     startsToday: 0,
     todayCompletions: 0,
@@ -135,6 +190,8 @@
     lastVisitDate: null,
     lastStartDate: null,
     lastCompletionDate: null,
+    lastReturnIntentDate: null,
+    lastReturnIntentAnchor: null,
     firstActivationAt: null,
     firstValueMs: null,
     lastReward: '',
@@ -145,6 +202,29 @@
     onboardingSeenAt: null,
     onboardingDismissedAt: null,
     onboardingLastOpenedAt: null,
+    leadCapture: {
+      status: LEAD_CAPTURE_STATUS.IDLE,
+      viewedAt: null,
+      updatedAt: null,
+      consent: false,
+      consentTimestamp: null,
+      submittedAt: null,
+      skippedAt: null,
+      contact: {
+        telegram: '',
+        email: '',
+      },
+      source: null,
+    },
+    reactivation: {
+      lastShownKey: null,
+      lastShownAt: null,
+      lastStage: null,
+      dismissedDate: null,
+      dismissedAt: null,
+      lastAction: null,
+      lastActionAt: null,
+    },
     lastCompletionRecap: null,
     completionHistory: [],
     energyHistory: [],
@@ -163,10 +243,19 @@
     events: [],
   };
 
+  const DEFAULT_EXPERIMENTS = {
+    version: 1,
+    assignments: {},
+    exposures: {},
+    goals: [],
+  };
+
   const MAX_EVENTS = 300;
+  const MAX_EXPERIMENT_GOALS = 240;
 
   let state = loadFromStorage(STORAGE_KEY, DEFAULT_STATE);
   let metrics = loadFromStorage(METRICS_KEY, DEFAULT_METRICS);
+  let experiments = loadExperimentsState();
 
   let today = getLocalISODate();
   let session = loadSessionState();
@@ -212,6 +301,7 @@
     }
 
     ensureTodayAction();
+    applyExperimentVariants();
     bindEvents();
     restoreRitualProgressAfterReload();
     trackEvent('session_start', { date: today, skippedDays, sessionCompletions: session.completions });
@@ -231,6 +321,8 @@
   }
 
   function cacheRefs() {
+    refs.heroHeadline = document.getElementById('hero-headline');
+    refs.heroSubtitle = document.getElementById('hero-subtitle');
     refs.oneClickBtn = document.getElementById('one-click-cta');
     refs.heroScenarioButtons = Array.from(document.querySelectorAll('[data-hero-scenario]'));
     refs.howItWorksBtn = document.getElementById('how-it-works-btn');
@@ -249,6 +341,23 @@
     refs.proofTtfvValue = document.getElementById('proof-ttfv-value');
     refs.proofStartsTotal = document.getElementById('proof-starts-total');
     refs.proofCompletionsTotal = document.getElementById('proof-completions-total');
+
+    refs.leadCaptureCard = document.getElementById('lead-capture-card');
+    refs.leadCaptureForm = document.getElementById('lead-capture-form');
+    refs.leadTelegramInput = document.getElementById('lead-telegram');
+    refs.leadEmailInput = document.getElementById('lead-email');
+    refs.leadConsentInput = document.getElementById('lead-consent');
+    refs.leadSubmitBtn = document.getElementById('lead-submit-btn');
+    refs.leadSkipBtn = document.getElementById('lead-skip-btn');
+    refs.leadResetBtn = document.getElementById('lead-reset-btn');
+    refs.leadCaptureStatus = document.getElementById('lead-capture-status');
+
+    refs.reactivationCard = document.getElementById('reactivation-card');
+    refs.reactivationStage = document.getElementById('reactivation-stage');
+    refs.reactivationMessage = document.getElementById('reactivation-message');
+    refs.reactivationRecommendation = document.getElementById('reactivation-recommendation');
+    refs.reactivationStartBtn = document.getElementById('reactivation-start-btn');
+    refs.reactivationSnoozeBtn = document.getElementById('reactivation-snooze-btn');
 
     refs.ritualSection = document.getElementById('ritual-section');
     refs.actionPillar = document.getElementById('action-pillar');
@@ -316,6 +425,13 @@
     refs.howItWorksBtn?.addEventListener('click', toggleOnboardingFromUi);
     refs.onboardingStartBtn?.addEventListener('click', handleOnboardingStart);
     refs.onboardingSkipBtn?.addEventListener('click', () => closeOnboarding('skip'));
+
+    refs.leadCaptureForm?.addEventListener('submit', handleLeadCaptureSubmit);
+    refs.leadSkipBtn?.addEventListener('click', handleLeadCaptureSkip);
+    refs.leadResetBtn?.addEventListener('click', handleLeadCaptureReset);
+
+    refs.reactivationStartBtn?.addEventListener('click', handleReactivationStart);
+    refs.reactivationSnoozeBtn?.addEventListener('click', handleReactivationSnooze);
 
     refs.ritualStartBtn?.addEventListener('click', handleRitualStart);
     refs.ritualCompleteBtn?.addEventListener('click', () => completeRitual(false));
@@ -452,6 +568,116 @@
     refs.howItWorksBtn.textContent = isOpen ? 'Скрыть объяснение' : 'Как это работает?';
   }
 
+  function applyExperimentVariants() {
+    const headlineExperiment = ACTIVE_EXPERIMENTS.heroHeadlineV1;
+    const headlineVariant = getExperimentVariant(headlineExperiment.id, { source: 'hero_headline' });
+    const headlineCopy = headlineExperiment.variants[headlineVariant] || headlineExperiment.variants.A;
+
+    if (refs.heroHeadline && headlineCopy?.headline) {
+      refs.heroHeadline.textContent = headlineCopy.headline;
+    }
+
+    if (refs.heroSubtitle && headlineCopy?.subtitle) {
+      refs.heroSubtitle.textContent = headlineCopy.subtitle;
+    }
+
+    const ctaExperiment = ACTIVE_EXPERIMENTS.heroCtaV1;
+    const ctaVariant = getExperimentVariant(ctaExperiment.id, { source: 'hero_cta' });
+    const ctaText = ctaExperiment.variants[ctaVariant] || ctaExperiment.variants.A;
+
+    if (refs.oneClickBtn && ctaText) {
+      refs.oneClickBtn.textContent = ctaText;
+    }
+  }
+
+  function getExperimentVariant(experimentId, options = {}) {
+    const experiment = Object.values(ACTIVE_EXPERIMENTS).find((item) => item.id === experimentId);
+    if (!experiment) return null;
+
+    experiments = sanitizeExperimentsState(experiments);
+
+    const variantKeys = Object.keys(experiment.variants || {});
+    if (!variantKeys.length) return null;
+
+    let variant = experiments.assignments[experimentId];
+
+    if (!variantKeys.includes(variant)) {
+      variant = pickFromArray(variantKeys) || variantKeys[0];
+      experiments.assignments[experimentId] = variant;
+      saveExperimentsState();
+    }
+
+    if (options.trackExposure !== false) {
+      logExperimentExposure(experimentId, variant, options.source || 'unknown');
+    }
+
+    return variant;
+  }
+
+  function logExperimentExposure(experimentId, variant, source) {
+    experiments = sanitizeExperimentsState(experiments);
+
+    const key = `${experimentId}:${variant}`;
+    if (experiments.exposures[key]) {
+      return;
+    }
+
+    experiments.exposures[key] = Date.now();
+    saveExperimentsState();
+
+    trackEvent(TRACKED_EVENTS.EXPERIMENT_EXPOSURE, {
+      experimentId,
+      variant,
+      source,
+    });
+  }
+
+  function getExperimentAssignmentsSnapshot(options = {}) {
+    const snapshot = {};
+
+    Object.values(ACTIVE_EXPERIMENTS).forEach((experiment) => {
+      const variant = getExperimentVariant(experiment.id, {
+        source: options.source || 'snapshot',
+        trackExposure: options.trackExposure,
+      });
+
+      if (variant) {
+        snapshot[experiment.id] = variant;
+      }
+    });
+
+    return snapshot;
+  }
+
+  function trackExperimentGoal(goalType, meta = {}) {
+    const assignments = getExperimentAssignmentsSnapshot({ source: 'goal', trackExposure: false });
+    if (!Object.keys(assignments).length) {
+      return;
+    }
+
+    experiments = sanitizeExperimentsState(experiments);
+
+    experiments.goals.push({
+      goalType,
+      timestamp: Date.now(),
+      date: today,
+      assignments,
+      meta,
+    });
+
+    if (experiments.goals.length > MAX_EXPERIMENT_GOALS) {
+      experiments.goals = experiments.goals.slice(-MAX_EXPERIMENT_GOALS);
+    }
+
+    saveExperimentsState();
+
+    trackEvent(TRACKED_EVENTS.EXPERIMENT_GOAL, {
+      goalType,
+      assignments,
+      ...meta,
+    });
+  }
+
   function handleActivationClick(options = {}) {
     syncTodayState();
 
@@ -576,6 +802,11 @@
     state.ritualDurationSec = durationSec;
 
     trackEvent(TRACKED_EVENTS.RITUAL_START, { actionId: action.id, durationSec, todayCompletions: state.todayCompletions || 0 });
+    trackExperimentGoal('ritual_start', {
+      actionId: action.id,
+      mode: state.todayActionMode,
+      todayCompletions: normalizeCount(state.todayCompletions),
+    });
     saveState();
 
     startTimer(durationSec, { startedAt });
@@ -637,6 +868,13 @@
       sessionCompletions: session.completions,
       energyDelta: state.lastCompletionRecap?.energyDelta ?? null,
       restoredFromReload: Boolean(options.restoredFromReload),
+    });
+
+    trackExperimentGoal('ritual_complete', {
+      actionId: completedAction?.id || state.todayActionId,
+      mode: state.todayActionMode,
+      todayCompletions: normalizeCount(state.todayCompletions),
+      streak: normalizeCount(state.streak),
     });
 
     stopTimer({ resetRitualState: true });
@@ -870,6 +1108,8 @@
 
     const changed = state.todayPlanAnchor !== anchor;
     state.todayPlanAnchor = anchor;
+    state.lastReturnIntentAnchor = anchor;
+    state.lastReturnIntentDate = today;
 
     trackEvent('plan_anchor_set', {
       anchor,
@@ -914,8 +1154,13 @@
     state.xp += 2;
     metrics.returnIntentCount += 1;
 
+    const anchor = normalizePlanAnchor(meta.anchor) || normalizePlanAnchor(state.todayPlanAnchor);
+    state.lastReturnIntentDate = today;
+    state.lastReturnIntentAnchor = anchor;
+
     trackEvent('return_intent_set', {
       tomorrowStep: refs.tomorrowStep?.textContent || '',
+      anchor,
       ...meta,
     });
 
@@ -990,6 +1235,8 @@
     renderOnboardingToggle();
     renderStats();
     renderTrustProof();
+    renderLeadCapture();
+    renderReactivationPrompt();
     renderActionModeSelector();
     renderActionCard();
     renderCompletionRecap();
@@ -1051,6 +1298,381 @@
     }
 
     refs.proofTtfvValue.textContent = 'цель ≤ 15 сек';
+  }
+
+  function renderLeadCapture() {
+    if (!refs.leadCaptureCard) return;
+
+    state.leadCapture = sanitizeLeadCapture(state.leadCapture);
+    const lead = state.leadCapture;
+    const shouldShow = shouldShowLeadCapture();
+
+    refs.leadCaptureCard.hidden = !shouldShow;
+    if (!shouldShow) {
+      return;
+    }
+
+    if (!lead.viewedAt) {
+      lead.viewedAt = Date.now();
+      lead.updatedAt = lead.viewedAt;
+      trackEvent(TRACKED_EVENTS.LEAD_CAPTURE_VIEW, {
+        source: 'post_first_value',
+        startsTotal: normalizeCount(state.startsTotal),
+        completionsTotal: normalizeCount(metrics.miniRitualCompletions),
+      });
+      saveState();
+    }
+
+    const status = lead.status || LEAD_CAPTURE_STATUS.IDLE;
+    const formHidden = status === LEAD_CAPTURE_STATUS.SUCCESS || status === LEAD_CAPTURE_STATUS.SKIP;
+
+    if (refs.leadCaptureForm) {
+      refs.leadCaptureForm.hidden = formHidden;
+    }
+
+    if (refs.leadResetBtn) {
+      refs.leadResetBtn.hidden = !formHidden;
+    }
+
+    if (refs.leadTelegramInput && document.activeElement !== refs.leadTelegramInput) {
+      refs.leadTelegramInput.value = lead.contact.telegram || '';
+    }
+
+    if (refs.leadEmailInput && document.activeElement !== refs.leadEmailInput) {
+      refs.leadEmailInput.value = lead.contact.email || '';
+    }
+
+    if (refs.leadConsentInput) {
+      refs.leadConsentInput.checked = Boolean(lead.consent);
+      refs.leadConsentInput.disabled = status === LEAD_CAPTURE_STATUS.SUCCESS;
+    }
+
+    renderLeadCaptureStatus(status, lead);
+  }
+
+  function renderLeadCaptureStatus(status, lead) {
+    if (!refs.leadCaptureStatus) return;
+
+    refs.leadCaptureStatus.classList.remove('is-success', 'is-invalid', 'is-skip');
+
+    if (status === LEAD_CAPTURE_STATUS.SUCCESS) {
+      const channels = [];
+      if (lead.contact.telegram) channels.push(`Telegram: ${lead.contact.telegram}`);
+      if (lead.contact.email) channels.push(`Email: ${lead.contact.email}`);
+      const channelsText = channels.length ? channels.join(' · ') : 'Контакт сохранён';
+      refs.leadCaptureStatus.classList.add('is-success');
+      refs.leadCaptureStatus.textContent = `✅ Сохранили локально. 1 микрошаг в день, без внешней отправки. ${channelsText}`;
+      return;
+    }
+
+    if (status === LEAD_CAPTURE_STATUS.INVALID) {
+      refs.leadCaptureStatus.classList.add('is-invalid');
+      refs.leadCaptureStatus.textContent =
+        'Проверь данные: нужен минимум один валидный канал (Telegram и/или email) + согласие на локальное хранение.';
+      return;
+    }
+
+    if (status === LEAD_CAPTURE_STATUS.SKIP) {
+      refs.leadCaptureStatus.classList.add('is-skip');
+      refs.leadCaptureStatus.textContent = 'Ок, без контакта. Продолжаем в ритме — форму можно вернуть в любой момент.';
+      return;
+    }
+
+    refs.leadCaptureStatus.textContent =
+      'Оставь Telegram и/или email (минимум один канал), чтобы зафиксировать формат «1 микрошаг в день». Данные остаются только в браузере.';
+  }
+
+  function shouldShowLeadCapture() {
+    const hasFirstValue = normalizeCount(state.startsTotal) > 0 || normalizeCount(metrics.miniRitualCompletions) > 0;
+    return hasFirstValue;
+  }
+
+  function handleLeadCaptureSubmit(event) {
+    event.preventDefault();
+    syncTodayState();
+
+    state.leadCapture = sanitizeLeadCapture(state.leadCapture);
+    const lead = state.leadCapture;
+
+    const telegramRaw = String(refs.leadTelegramInput?.value || '').trim();
+    const emailRaw = String(refs.leadEmailInput?.value || '').trim();
+    const consent = Boolean(refs.leadConsentInput?.checked);
+
+    const telegram = normalizeTelegramHandle(telegramRaw);
+    const email = normalizeEmailAddress(emailRaw);
+
+    const hasChannel = Boolean(telegram || email);
+    const telegramInvalid = Boolean(telegramRaw) && !telegram;
+    const emailInvalid = Boolean(emailRaw) && !email;
+
+    lead.contact.telegram = telegramRaw;
+    lead.contact.email = emailRaw;
+    lead.consent = consent;
+    lead.updatedAt = Date.now();
+
+    if (!consent || !hasChannel || telegramInvalid || emailInvalid) {
+      lead.status = LEAD_CAPTURE_STATUS.INVALID;
+      lead.source = 'lead_capture_form';
+      lead.consentTimestamp = null;
+      state.leadCapture = lead;
+
+      trackEvent(TRACKED_EVENTS.LEAD_CAPTURE_SUBMIT, {
+        status: LEAD_CAPTURE_STATUS.INVALID,
+        consent,
+        hasChannel,
+        telegramInvalid,
+        emailInvalid,
+      });
+
+      saveState();
+      renderLeadCapture();
+      announce('Нужен минимум один валидный контакт + согласие на локальное хранение.');
+      return;
+    }
+
+    const nowTs = Date.now();
+
+    lead.status = LEAD_CAPTURE_STATUS.SUCCESS;
+    lead.contact.telegram = telegram || '';
+    lead.contact.email = email || '';
+    lead.consent = true;
+    lead.consentTimestamp = nowTs;
+    lead.submittedAt = nowTs;
+    lead.skippedAt = null;
+    lead.updatedAt = nowTs;
+    lead.source = 'lead_capture_form';
+
+    state.leadCapture = lead;
+
+    trackEvent(TRACKED_EVENTS.LEAD_CAPTURE_SUBMIT, {
+      status: LEAD_CAPTURE_STATUS.SUCCESS,
+      consent: true,
+      hasTelegram: Boolean(lead.contact.telegram),
+      hasEmail: Boolean(lead.contact.email),
+    });
+
+    saveState();
+    renderLeadCapture();
+    announce('Контакт сохранён локально. Ритм «1 микрошаг в день» зафиксирован.');
+  }
+
+  function handleLeadCaptureSkip() {
+    syncTodayState();
+
+    state.leadCapture = sanitizeLeadCapture(state.leadCapture);
+    const lead = state.leadCapture;
+
+    lead.status = LEAD_CAPTURE_STATUS.SKIP;
+    lead.consent = false;
+    lead.consentTimestamp = null;
+    lead.skippedAt = Date.now();
+    lead.updatedAt = lead.skippedAt;
+    lead.source = 'lead_capture_skip';
+
+    state.leadCapture = lead;
+
+    trackEvent(TRACKED_EVENTS.LEAD_CAPTURE_SKIP, {
+      source: 'lead_capture_card',
+      hasTelegram: Boolean(lead.contact.telegram),
+      hasEmail: Boolean(lead.contact.email),
+    });
+
+    saveState();
+    renderLeadCapture();
+    announce('Ок, пропустили. Можно вернуться к контакту позже.');
+  }
+
+  function handleLeadCaptureReset() {
+    syncTodayState();
+
+    state.leadCapture = sanitizeLeadCapture(state.leadCapture);
+    state.leadCapture.status = LEAD_CAPTURE_STATUS.IDLE;
+    state.leadCapture.updatedAt = Date.now();
+    state.leadCapture.skippedAt = null;
+    state.leadCapture.consent = false;
+
+    saveState();
+    renderLeadCapture();
+
+    refs.leadTelegramInput?.focus();
+  }
+
+  function renderReactivationPrompt() {
+    if (!refs.reactivationCard) return;
+
+    state.reactivation = sanitizeReactivationState(state.reactivation);
+
+    const context = getReactivationContext();
+    if (!context) {
+      refs.reactivationCard.hidden = true;
+      return;
+    }
+
+    refs.reactivationCard.hidden = false;
+
+    if (refs.reactivationStage) {
+      refs.reactivationStage.textContent = context.stage;
+    }
+
+    if (refs.reactivationMessage) {
+      refs.reactivationMessage.textContent = `${context.copy.title}. ${context.copy.message}`;
+    }
+
+    if (refs.reactivationRecommendation) {
+      refs.reactivationRecommendation.textContent = `Рекомендация: ${context.recommendation.text}`;
+    }
+
+    if (refs.reactivationStartBtn) {
+      refs.reactivationStartBtn.textContent = context.stage === 'D7' ? 'Вернуться мягко за 60 сек' : 'Сделать 1 мягкий шаг сейчас';
+    }
+
+    const shownKey = `${context.stage}:${today}`;
+    if (state.reactivation.lastShownKey !== shownKey) {
+      state.reactivation.lastShownKey = shownKey;
+      state.reactivation.lastShownAt = Date.now();
+      state.reactivation.lastStage = context.stage;
+
+      trackEvent(TRACKED_EVENTS.REACTIVATION_PROMPT_SHOWN, {
+        stage: context.stage,
+        daysWithoutCompletion: context.daysWithoutCompletion,
+        suggestedMode: context.recommendation.mode,
+      });
+
+      saveState();
+    }
+  }
+
+  function handleReactivationStart() {
+    syncTodayState();
+
+    state.reactivation = sanitizeReactivationState(state.reactivation);
+    const context = getReactivationContext();
+
+    if (!context) {
+      announce('Ты уже в ритме. Возьми один шаг из текущего блока.');
+      return;
+    }
+
+    state.reactivation.lastAction = 'start_now';
+    state.reactivation.lastActionAt = Date.now();
+    state.reactivation.dismissedDate = today;
+    state.reactivation.dismissedAt = state.reactivation.lastActionAt;
+
+    trackEvent(TRACKED_EVENTS.REACTIVATION_PROMPT_ACTION, {
+      stage: context.stage,
+      action: 'start_now',
+      daysWithoutCompletion: context.daysWithoutCompletion,
+      suggestedMode: context.recommendation.mode,
+    });
+
+    saveState();
+
+    handleActivationClick({
+      source: 'reactivation_prompt',
+      scenarioMode: context.recommendation.mode,
+    });
+  }
+
+  function handleReactivationSnooze() {
+    syncTodayState();
+
+    state.reactivation = sanitizeReactivationState(state.reactivation);
+    const context = getReactivationContext();
+
+    if (!context) {
+      if (refs.reactivationCard) {
+        refs.reactivationCard.hidden = true;
+      }
+      return;
+    }
+
+    state.reactivation.lastAction = 'snooze_today';
+    state.reactivation.lastActionAt = Date.now();
+    state.reactivation.dismissedDate = today;
+    state.reactivation.dismissedAt = state.reactivation.lastActionAt;
+
+    trackEvent(TRACKED_EVENTS.REACTIVATION_PROMPT_ACTION, {
+      stage: context.stage,
+      action: 'snooze_today',
+      daysWithoutCompletion: context.daysWithoutCompletion,
+      suggestedMode: context.recommendation.mode,
+    });
+
+    saveState();
+    renderReactivationPrompt();
+    announce('Ок, без давления. Вернись позже сегодня, когда появится 60 секунд.');
+  }
+
+  function getReactivationContext() {
+    const daysWithoutCompletion = getDaysWithoutCompletion();
+    if (!daysWithoutCompletion || daysWithoutCompletion < 1) return null;
+    if (state.todayCompletions > 0 || state.startsToday > 0 || hasRitualProgress()) return null;
+    if (state.reactivation?.dismissedDate === today) return null;
+
+    const stage = getReactivationStage(daysWithoutCompletion);
+    if (!stage) return null;
+
+    return {
+      stage,
+      daysWithoutCompletion,
+      copy: REACTIVATION_COPY[stage] || REACTIVATION_COPY.D1,
+      recommendation: buildReactivationRecommendation(stage),
+    };
+  }
+
+  function getDaysWithoutCompletion() {
+    if (!state.lastCompletionDate) return null;
+    const gap = diffDays(state.lastCompletionDate, today);
+    return gap > 0 ? gap : 0;
+  }
+
+  function getReactivationStage(daysWithoutCompletion) {
+    const days = normalizeCount(daysWithoutCompletion);
+    if (days >= 7) return 'D7';
+    if (days >= 3) return 'D3';
+    if (days >= 1) return 'D1';
+    return null;
+  }
+
+  function buildReactivationRecommendation(stage) {
+    const lastCompletionEvent = findLastCompletionEvent();
+    const recommendation = {
+      mode: stage === 'D7' ? 'recovery' : 'any',
+      text: 'Начни с самого мягкого шага: 1 минута дыхания 4/6 или 3 спокойных глотка воды.',
+      actionId: null,
+    };
+
+    const actionId = lastCompletionEvent?.meta?.actionId;
+    if (actionId) {
+      const action = getActionById(actionId);
+      if (action) {
+        recommendation.mode = normalizeActionMode(action.pillar);
+        recommendation.text = `Начни с того, что уже срабатывало: «${action.title}» (~${action.durationSec || 60} сек).`;
+        recommendation.actionId = action.id;
+      }
+    }
+
+    const anchor = normalizePlanAnchor(state.lastReturnIntentAnchor);
+    if (anchor) {
+      const anchorLabel = PLAN_ANCHORS[anchor]?.label || 'выбранный якорь';
+      recommendation.text = `${recommendation.text} Якорь из намерений: ${anchorLabel.toLowerCase()}.`;
+    }
+
+    return recommendation;
+  }
+
+  function findLastCompletionEvent() {
+    const events = Array.isArray(metrics.events) ? metrics.events : [];
+
+    for (let index = events.length - 1; index >= 0; index -= 1) {
+      const event = events[index];
+      if (!event || typeof event !== 'object') continue;
+      if (event.type === TRACKED_EVENTS.RITUAL_COMPLETE || event.type === 'mini_ritual_complete') {
+        return event;
+      }
+    }
+
+    return null;
   }
 
   function renderProgressRing(progress) {
@@ -1865,6 +2487,7 @@
       exportedAt: new Date().toISOString(),
       state,
       metrics,
+      experiments,
       session,
     };
 
@@ -1885,6 +2508,7 @@
   function saveAll() {
     saveState();
     saveMetrics();
+    saveExperimentsState();
   }
 
   function saveState() {
@@ -1956,6 +2580,7 @@
 
   function rolloverStateForToday(inputState, currentDate) {
     const next = { ...deepClone(DEFAULT_STATE), ...inputState };
+    next.version = DEFAULT_STATE.version;
 
     if (next.todayDate !== currentDate) {
       next.startsToday = 0;
@@ -1983,6 +2608,11 @@
     next.onboardingSeenAt = Number(next.onboardingSeenAt) || null;
     next.onboardingDismissedAt = Number(next.onboardingDismissedAt) || null;
     next.onboardingLastOpenedAt = Number(next.onboardingLastOpenedAt) || null;
+
+    next.leadCapture = sanitizeLeadCapture(next.leadCapture);
+    next.lastReturnIntentDate = isISODate(next.lastReturnIntentDate) ? next.lastReturnIntentDate : null;
+    next.lastReturnIntentAnchor = normalizePlanAnchor(next.lastReturnIntentAnchor);
+    next.reactivation = sanitizeReactivationState(next.reactivation);
 
     next.completionHistory = sanitizeCompletionHistory(next.completionHistory).slice(-60);
     next.energyHistory = sanitizeEnergyHistory(next.energyHistory).slice(-30);
@@ -2079,6 +2709,117 @@
       })
       .filter((item) => isISODate(item.date))
       .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  function sanitizeLeadCapture(input) {
+    const raw = input && typeof input === 'object' ? input : {};
+    const statuses = Object.values(LEAD_CAPTURE_STATUS);
+    const status = statuses.includes(raw.status) ? raw.status : LEAD_CAPTURE_STATUS.IDLE;
+
+    const contact = raw.contact && typeof raw.contact === 'object' ? raw.contact : {};
+
+    return {
+      status,
+      viewedAt: Number(raw.viewedAt) || null,
+      updatedAt: Number(raw.updatedAt) || null,
+      consent: Boolean(raw.consent),
+      consentTimestamp: Number(raw.consentTimestamp) || null,
+      submittedAt: Number(raw.submittedAt) || null,
+      skippedAt: Number(raw.skippedAt) || null,
+      contact: {
+        telegram: String(contact.telegram || '').trim().slice(0, 64),
+        email: String(contact.email || '').trim().slice(0, 120),
+      },
+      source: typeof raw.source === 'string' ? raw.source : null,
+    };
+  }
+
+  function sanitizeReactivationState(input) {
+    const raw = input && typeof input === 'object' ? input : {};
+
+    return {
+      lastShownKey: typeof raw.lastShownKey === 'string' ? raw.lastShownKey : null,
+      lastShownAt: Number(raw.lastShownAt) || null,
+      lastStage: ['D1', 'D3', 'D7'].includes(raw.lastStage) ? raw.lastStage : null,
+      dismissedDate: isISODate(raw.dismissedDate) ? raw.dismissedDate : null,
+      dismissedAt: Number(raw.dismissedAt) || null,
+      lastAction: typeof raw.lastAction === 'string' ? raw.lastAction : null,
+      lastActionAt: Number(raw.lastActionAt) || null,
+    };
+  }
+
+  function normalizeTelegramHandle(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+
+    const stripped = raw.startsWith('@') ? raw.slice(1) : raw;
+    if (!/^[a-zA-Z0-9_]{5,32}$/.test(stripped)) {
+      return null;
+    }
+
+    return `@${stripped}`;
+  }
+
+  function normalizeEmailAddress(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return null;
+    if (raw.length > 120) return null;
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    return emailPattern.test(raw) ? raw : null;
+  }
+
+  function loadExperimentsState() {
+    const loaded = loadFromStorage(EXPERIMENTS_KEY, DEFAULT_EXPERIMENTS);
+    return sanitizeExperimentsState(loaded);
+  }
+
+  function saveExperimentsState() {
+    experiments = sanitizeExperimentsState(experiments);
+    saveToStorage(EXPERIMENTS_KEY, experiments);
+  }
+
+  function sanitizeExperimentsState(input) {
+    const raw = input && typeof input === 'object' ? input : {};
+    const assignmentsRaw = raw.assignments && typeof raw.assignments === 'object' ? raw.assignments : {};
+    const exposuresRaw = raw.exposures && typeof raw.exposures === 'object' ? raw.exposures : {};
+
+    const assignments = {};
+    Object.values(ACTIVE_EXPERIMENTS).forEach((experiment) => {
+      const variantKeys = Object.keys(experiment.variants || {});
+      const variant = assignmentsRaw[experiment.id];
+      if (variantKeys.includes(variant)) {
+        assignments[experiment.id] = variant;
+      }
+    });
+
+    const exposures = {};
+    Object.keys(exposuresRaw).forEach((key) => {
+      const value = Number(exposuresRaw[key]);
+      if (Number.isFinite(value) && value > 0) {
+        exposures[key] = value;
+      }
+    });
+
+    const goals = Array.isArray(raw.goals)
+      ? raw.goals
+          .map((goal) => ({
+            goalType: typeof goal?.goalType === 'string' ? goal.goalType : null,
+            timestamp: Number(goal?.timestamp) || null,
+            date: isISODate(goal?.date) ? goal.date : null,
+            assignments: goal?.assignments && typeof goal.assignments === 'object' ? { ...goal.assignments } : {},
+            meta: goal?.meta && typeof goal.meta === 'object' ? { ...goal.meta } : {},
+          }))
+          .filter((goal) => goal.goalType && goal.timestamp)
+          .slice(-MAX_EXPERIMENT_GOALS)
+      : [];
+
+    return {
+      version: Number(raw.version) || DEFAULT_EXPERIMENTS.version,
+      assignments,
+      exposures,
+      goals,
+    };
   }
 
   function normalizeRewards(raw) {
@@ -2200,9 +2941,11 @@
     window.ProjectEnergyDebug = {
       getState: () => state,
       getMetrics: () => metrics,
+      getExperiments: () => experiments,
       reset() {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(METRICS_KEY);
+        localStorage.removeItem(EXPERIMENTS_KEY);
         window.location.reload();
       },
     };

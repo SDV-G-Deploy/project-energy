@@ -406,6 +406,120 @@ input:focus-visible {
   color: var(--muted);
 }
 
+.lead-capture {
+  border-color: #cde2ff;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.lead-capture-head {
+  margin-bottom: 8px;
+}
+
+.lead-capture-copy {
+  margin: 0;
+  color: var(--muted);
+}
+
+.lead-capture-form {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.lead-field {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 0.93rem;
+}
+
+.lead-field input {
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font: inherit;
+  color: var(--text);
+  background: #ffffff;
+}
+
+.lead-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.lead-consent input {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.lead-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.lead-status {
+  margin: 12px 0 0;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  padding: 10px 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.lead-status.is-success {
+  border-color: #b6eadf;
+  background: #ecfbf7;
+  color: #0f766e;
+}
+
+.lead-status.is-invalid {
+  border-color: #ffd1d1;
+  background: #fff5f5;
+  color: #a03434;
+}
+
+.lead-status.is-skip {
+  border-color: #d9e4ff;
+  background: #f4f7ff;
+  color: #2c4a95;
+}
+
+.lead-reset-btn {
+  margin-top: 6px;
+}
+
+.reactivation {
+  border-color: #c7e9e1;
+  background: linear-gradient(180deg, #f6fcfa 0%, #ffffff 100%);
+}
+
+.reactivation-head {
+  margin-bottom: 8px;
+}
+
+.reactivation-message {
+  margin: 0;
+  color: var(--text);
+}
+
+.reactivation-recommendation {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.reactivation-actions {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
 .dashboard {
   display: grid;
   gap: 14px;
@@ -764,6 +878,11 @@ input:focus-visible {
   }
 
   .onboarding-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lead-actions,
+  .reactivation-actions {
     grid-template-columns: 1fr 1fr;
   }
 

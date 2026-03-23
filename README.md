@@ -31,6 +31,43 @@ Micro-product версия лендинга: **«польза в 1 клик»** 
 11. **Мягкий re-entry** после пропуска дней (без стыда)
 12. **Мультивыполнение микрошагов в один день**: цикл «Другой микрошаг → Сделай сейчас → Отметить выполненным» можно повторять без лимита; на дашборде есть счётчик **«Выполнено сегодня»**
 
+## Sprint-2 (Lead capture · Reactivation · A/B)
+
+### 1) Lead capture (P1)
+
+- Добавлен лёгкий блок **«Поддерживать ритм: 1 микрошаг в день»**.
+- Пользователь может оставить **Telegram handle и/или email** (минимум один канал).
+- Явное согласие: чекбокс на локальное сохранение контакта.
+- UX-состояния в интерфейсе:
+  - `success` — контакт и consent сохранены локально,
+  - `invalid` — невалидные данные / нет согласия / нет канала,
+  - `skip` — пользователь пропустил без давления.
+- Никаких внешних отправок: только `localStorage`.
+
+### 2) Реактивация D1 / D3 / D7 (in-app)
+
+- Добавлен блок **«Вернуться в ритм»** с мягкими триггерами:
+  - `D1` — нет completion 1 день,
+  - `D3` — нет completion 3 дня,
+  - `D7` — нет completion 7+ дней.
+- В блоке показывается персонализированная рекомендация:
+  - на основе последнего completion,
+  - с учётом последнего выбранного якоря/intent (если был).
+- Без внешних push-уведомлений: только внутри продукта.
+- Тексты шаблонов: `docs/REACTIVATION_COPY.md`.
+
+### 3) A/B тесты (минимальный каркас)
+
+- Добавлен стабильный assignment вариантов в `localStorage` (без бэкенда).
+- Активные эксперименты:
+  1. `hero_headline_v1` — вариант заголовка Hero (A/B)
+  2. `hero_cta_copy_v1` — вариант primary CTA (A/B)
+- Единый helper в `app.js`:
+  - выдаёт вариант эксперимента,
+  - логирует exposure,
+  - фиксирует goal-события на `ritual_start` и `ritual_complete`.
+- Документация: `docs/AB_TESTS.md`.
+
 ## Стек
 
 - HTML5
@@ -110,6 +147,10 @@ project-energy/
 │   ├── energy-practices.json
 │   ├── faq.md
 │   └── disclaimer.md
+├── docs/
+│   ├── SPRINT1_PLAN.md
+│   ├── AB_TESTS.md
+│   └── REACTIVATION_COPY.md
 └── research/
     ├── PRODUCT_USABILITY_RESEARCH.md
     ├── FUNNEL_V2.md
@@ -165,12 +206,28 @@ project-energy/
 
 ## Локальные ключи состояния
 
-- `project-energy-state-v2` — прогресс пользователя и UI-состояние
-  - новые поля для P0-пакета (Sprint-1):
+- `project-energy-state-v2` — основной прогресс пользователя и UI-состояние.
+  - Sprint-1 поля:
     - `onboardingSeen`, `onboardingSeenAt`, `onboardingDismissedAt`, `onboardingLastOpenedAt`
     - `lastCompletionRecap`
-    - `completionHistory` (локальная история завершений/энергии для weekly view)
-- `project-energy-metrics-v1` — события и агрегаты метрик
+    - `completionHistory`
+  - Sprint-2 поля:
+    - `leadCapture`:
+      - `status` (`idle|invalid|success|skip`)
+      - `consent` (boolean)
+      - `consentTimestamp`
+      - `submittedAt` / `skippedAt`
+      - `contact.telegram` / `contact.email`
+    - `reactivation`:
+      - `lastShownKey`, `lastShownAt`, `lastStage`
+      - `dismissedDate`, `dismissedAt`
+      - `lastAction`, `lastActionAt`
+    - `lastReturnIntentDate`, `lastReturnIntentAnchor`
+- `project-energy-metrics-v1` — события и агрегаты метрик (локальный analytics event log).
+- `project-energy-experiments-v1` — assignment/экспозиции/goal-логи A/B тестов:
+  - `assignments` (стабильный variant per experiment)
+  - `exposures` (когда был показан experiment)
+  - `goals` (ритуальные goal-события с snapshot assignments)
 
 Все новые поля добавлены с **обратной совместимостью**: старые сохранённые состояния корректно мержатся с дефолтами.
 
@@ -180,10 +237,24 @@ project-energy/
 
 ### Унифицированные события (без бэкенда)
 
+**Базовая воронка**
 - `hero_cta_click` — клик по hero-CTA (primary или сценарный)
 - `ritual_start` — запуск 60-секундного ритуала
 - `ritual_complete` — завершение ритуала
 - `post_action_click` — клик по post-completion действию (например, `do_another_cycle`, `plan_return`)
+
+**Lead capture (Sprint-2)**
+- `lead_capture_view` — первый показ capture-блока после первой пользы
+- `lead_capture_submit` — попытка submit (meta содержит `status: success|invalid`)
+- `lead_capture_skip` — пользователь пропустил блок
+
+**Reactivation D1/D3/D7 (Sprint-2)**
+- `reactivation_prompt_shown` — показ in-app подсказки возврата
+- `reactivation_prompt_action` — действие в промпте (`start_now` / `snooze_today`)
+
+**A/B experiments (Sprint-2)**
+- `experiment_exposure` — экспозиция пользователя в варианте эксперимента
+- `experiment_goal` — целевое событие (на `ritual_start` или `ritual_complete`) с snapshot assignments
 
 ### Схема события
 

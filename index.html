@@ -14,8 +14,8 @@
     <main class="app">
       <header class="hero card">
         <p class="eyebrow">PROJECT ENERGY · anti-procrastination reset</p>
-        <h1>Анти-прокрастинационный reset за 60 секунд</h1>
-        <p class="subtitle">
+        <h1 id="hero-headline">Анти-прокрастинационный reset за 60 секунд</h1>
+        <p class="subtitle" id="hero-subtitle">
           Один короткий шаг, когда тяжело начать, расфокус или упадок энергии.
           Нажми — и получи первый ощутимый сдвиг без перегруза.
         </p>
@@ -164,6 +164,56 @@
               Нажми «Запустить reset за 60 сек», чтобы получить первый видимый результат.
             </p>
           </div>
+        </div>
+      </section>
+
+      <section class="lead-capture card" id="lead-capture-card" aria-labelledby="lead-capture-title" hidden>
+        <div class="section-head lead-capture-head">
+          <h2 id="lead-capture-title">Поддерживать ритм: 1 микрошаг в день</h2>
+          <p class="status-chip">Опционально</p>
+        </div>
+        <p class="lead-capture-copy">
+          Оставь Telegram и/или email (минимум один канал), чтобы зафиксировать ритм «1 микрошаг в день».
+          Никаких внешних отправок: контакт хранится только локально на этом устройстве.
+        </p>
+        <form class="lead-capture-form" id="lead-capture-form" novalidate>
+          <label class="lead-field" for="lead-telegram">
+            Telegram (можно без @)
+            <input id="lead-telegram" name="telegram" type="text" inputmode="text" autocomplete="username" placeholder="@username" />
+          </label>
+          <label class="lead-field" for="lead-email">
+            Email
+            <input id="lead-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="you@example.com" />
+          </label>
+          <label class="lead-consent" for="lead-consent">
+            <input id="lead-consent" name="consent" type="checkbox" />
+            Согласен(на) сохранить контакт и согласие локально в браузере.
+          </label>
+          <div class="lead-actions">
+            <button class="btn btn-primary" id="lead-submit-btn" type="submit">Сохранить контакт</button>
+            <button class="btn btn-secondary" id="lead-skip-btn" type="button">Пропустить</button>
+          </div>
+        </form>
+        <p class="lead-status" id="lead-capture-status" aria-live="polite">
+          Оставь Telegram и/или email (минимум один канал), чтобы зафиксировать формат «1 микрошаг в день».
+        </p>
+        <button class="btn btn-text lead-reset-btn" id="lead-reset-btn" type="button" hidden>Открыть форму снова</button>
+      </section>
+
+      <section class="reactivation card" id="reactivation-card" aria-labelledby="reactivation-title" hidden>
+        <div class="section-head reactivation-head">
+          <h2 id="reactivation-title">Вернуться в ритм</h2>
+          <p class="status-chip" id="reactivation-stage">D1</p>
+        </div>
+        <p class="reactivation-message" id="reactivation-message">
+          Пауза — это нормально. Вернись с одного мягкого шага без давления.
+        </p>
+        <p class="reactivation-recommendation" id="reactivation-recommendation">
+          Рекомендация появится автоматически на основе последнего completion и твоих намерений.
+        </p>
+        <div class="reactivation-actions">
+          <button class="btn btn-primary" id="reactivation-start-btn" type="button">Сделать 1 мягкий шаг сейчас</button>
+          <button class="btn btn-secondary" id="reactivation-snooze-btn" type="button">Вернусь позже сегодня</button>
         </div>
       </section>
 
@@ -341,7 +391,7 @@
         <h2 id="metrics-title">Локальные метрики (без бэкенда)</h2>
         <p>
           События сохраняются только в твоём браузере (`localStorage`): hero_cta_click,
-          ritual_start, ritual_complete, post_action_click.
+          ritual_start, ritual_complete, post_action_click, lead_capture_*, reactivation_prompt_*, experiment_*.
         </p>
         <button class="btn btn-text" id="export-metrics-btn" type="button">Скачать JSON метрик</button>
       </section>
