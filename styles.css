@@ -5,12 +5,18 @@
   --muted: #5a675f;
   --accent: #2e6b4b;
   --accent-hover: #25583d;
+  --accent-active: #1e4832;
+  --focus: #9fd6b9;
   --border: #dbe2dd;
   --shadow: 0 12px 30px rgba(20, 34, 27, 0.08);
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -29,7 +35,7 @@ body {
 
 .hero {
   text-align: center;
-  margin-bottom: 42px;
+  margin-bottom: 36px;
 }
 
 .eyebrow {
@@ -52,6 +58,72 @@ h1 {
   max-width: 36ch;
   font-size: clamp(1rem, 2.3vw, 1.2rem);
   color: var(--muted);
+}
+
+.cta-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 14px 28px;
+  border-radius: 999px;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  color: #fff;
+  background: var(--accent);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cta:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.cta:active {
+  background: var(--accent-active);
+  transform: translateY(0);
+}
+
+.cta:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 4px var(--focus);
+}
+
+.start {
+  scroll-margin-top: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 26px;
+  margin-bottom: 26px;
+}
+
+.start h2 {
+  margin: 0 0 14px;
+  font-size: clamp(1.2rem, 2.8vw, 1.6rem);
+}
+
+.checklist {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.checklist li + li {
+  margin-top: 10px;
 }
 
 .cards {
@@ -79,33 +151,27 @@ h1 {
   line-height: 1.55;
 }
 
-.cta-wrap {
-  display: flex;
-  justify-content: center;
-  margin-top: 34px;
-}
-
-.cta {
-  appearance: none;
-  border: 0;
-  border-radius: 999px;
-  padding: 14px 28px;
-  font-size: 0.98rem;
-  font-weight: 600;
-  color: #fff;
-  background: var(--accent);
-  cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease;
-}
-
-.cta:hover {
-  background: var(--accent-hover);
-  transform: translateY(-1px);
-}
-
 @media (max-width: 860px) {
   .page {
-    padding-top: 56px;
+    width: min(1040px, 94vw);
+    padding: 48px 0 42px;
+  }
+
+  .hero {
+    margin-bottom: 28px;
+  }
+
+  .cta {
+    width: 100%;
+    max-width: 360px;
+    min-height: 52px;
+    font-size: 1rem;
+    padding: 16px 20px;
+  }
+
+  .start {
+    padding: 20px;
+    margin-bottom: 22px;
   }
 
   .cards {
