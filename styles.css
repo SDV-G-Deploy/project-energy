@@ -190,7 +190,7 @@ input:focus-visible {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -467,6 +467,10 @@ input:focus-visible {
 
   .card {
     padding: 20px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .action-controls {

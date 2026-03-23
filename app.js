@@ -3,6 +3,7 @@
 
   const STORAGE_KEY = 'project-energy-state-v2';
   const METRICS_KEY = 'project-energy-metrics-v1';
+  const SESSION_KEY = 'project-energy-session-v1';
   const sessionStartTs = Date.now();
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -67,6 +68,7 @@
     version: 2,
     startsTotal: 0,
     startsToday: 0,
+    todayCompletions: 0,
     xp: 0,
     streak: 0,
     completedDays: 0,
@@ -108,6 +110,7 @@
   let metrics = loadFromStorage(METRICS_KEY, DEFAULT_METRICS);
 
   let today = getLocalISODate();
+  let session = loadSessionState();
   let actions = FALLBACK_ACTIONS.actions.slice();
   let rewards = { ...FALLBACK_REWARDS };
   let reentryMessages = FALLBACK_REENTRY.slice();
@@ -127,7 +130,9 @@
     const skippedDays = calculateSkippedDays(previousVisitDate, previousCompletionDate, today);
 
     state = rolloverStateForToday(state, today);
+    session = resetSessionForToday(session, today);
     saveState();
+    saveSessionState();
 
     const [actionsData, rewardsData, reentryText] = await Promise.all([
       loadJson('content/micro-actions.json', FALLBACK_ACTIONS),
@@ -149,7 +154,8 @@
 
     ensureTodayAction();
     bindEvents();
-    trackEvent('session_start', { date: today, skippedDays });
+    restoreRitualProgressAfterReload();
+    trackEvent('session_start', { date: today, skippedDays, sessionCompletions: session.completions });
 
     if (skippedDays > 0 && state.reentryMessageSeenDate !== today) {
       showReentryMessage(skippedDays);
@@ -167,6 +173,7 @@
   function cacheRefs() {
     refs.oneClickBtn = document.getElementById('one-click-cta');
     refs.startsValue = document.getElementById('starts-value');
+    refs.completionsTodayValue = document.getElementById('completions-today-value');
     refs.xpValue = document.getElementById('xp-value');
     refs.streakValue = document.getElementById('streak-value');
     refs.progressLabel = document.getElementById('progress-label');
@@ -216,7 +223,7 @@
     refs.ritualCompleteBtn?.addEventListener('click', () => completeRitual(false));
     refs.actionShuffleBtn?.addEventListener('click', () => {
       switchAction();
-      renderActionCard();
+      renderAll();
     });
 
     refs.energyBefore?.addEventListener('input', () => {
@@ -236,10 +243,7 @@
   }
 
   function handleActivationClick() {
-    today = getLocalISODate();
-    if (state.todayDate !== today) {
-      state = rolloverStateForToday(state, today);
-    }
+    syncTodayState();
 
     const firstStartToday = state.startsToday === 0;
 
@@ -282,14 +286,20 @@
   }
 
   function handleRitualStart() {
+    syncTodayState();
+
     if (state.startsToday < 1) {
       announce('Сначала нажми «Польза в 1 клик». Это занимает секунду.');
       refs.oneClickBtn?.focus();
       return;
     }
 
-    if (state.todayCompleted) {
-      announce('Сегодняшний мини-ритуал уже выполнен. Можно выбрать шаг на завтра.');
+    if (hasRitualProgress()) {
+      if (isRitualRunning()) {
+        announce('Таймер уже запущен. Можно завершить шаг или выбрать другой.');
+      } else {
+        announce('Этот шаг уже запущен. Отметь выполнение или выбери другой микрошаг.');
+      }
       return;
     }
 
@@ -300,62 +310,80 @@
     }
 
     const durationSec = clampNumber(action.durationSec, 30, 90, 60);
+    const startedAt = Date.now();
 
-    state.ritualStartedAt = Date.now();
+    state.ritualStartedAt = startedAt;
     state.ritualDurationSec = durationSec;
 
-    trackEvent('mini_ritual_start', { actionId: action.id, durationSec });
+    trackEvent('mini_ritual_start', { actionId: action.id, durationSec, todayCompletions: state.todayCompletions || 0 });
     saveState();
 
-    startTimer(durationSec);
+    startTimer(durationSec, { startedAt });
     announce('Поехали. Одна короткая минута для себя.');
-    renderActionCard();
+    renderAll();
   }
 
-  function completeRitual(autoCompleted) {
-    if (state.todayCompleted) {
-      announce('Ритуал уже засчитан сегодня ✅');
+  function completeRitual(autoCompleted, options = {}) {
+    syncTodayState();
+
+    if (!hasRitualProgress()) {
+      if (!autoCompleted) {
+        announce('Сначала нажми «Сделай сейчас», затем отмечай выполнение.');
+      }
       return;
     }
 
     const previousCompletionDate = state.lastCompletionDate;
+    const isFirstCompletionToday = previousCompletionDate !== today;
 
+    state.todayCompletions = normalizeCount(state.todayCompletions) + 1;
     state.todayCompleted = true;
-    state.lastCompletionDate = today;
-    state.completedDays += 1;
     state.xp += 12;
-    state.ritualStartedAt = null;
-    state.ritualDurationSec = null;
 
-    if (previousCompletionDate && diffDays(previousCompletionDate, today) === 1) {
-      state.streak += 1;
-    } else {
-      state.streak = 1;
+    if (isFirstCompletionToday) {
+      state.lastCompletionDate = today;
+      state.completedDays += 1;
+
+      if (previousCompletionDate && diffDays(previousCompletionDate, today) === 1) {
+        state.streak += 1;
+      } else {
+        state.streak = 1;
+      }
     }
 
     state.progress = computeProgress(state);
 
     metrics.miniRitualCompletions += 1;
 
+    session.completions = normalizeCount(session.completions) + 1;
+    session.date = today;
+
     const completionPhrase = pickReward('completion');
-    const streakPhrase = state.streak > 1 ? ` ${pickReward('streak')}` : '';
-    const message = `${completionPhrase} +12 XP.${streakPhrase}`.trim();
-    state.lastReward = message;
+    const streakPhrase = isFirstCompletionToday && state.streak > 1 ? ` ${pickReward('streak')}` : '';
+    const message = `${completionPhrase} +12 XP. Выполнено сегодня: ${state.todayCompletions}.`.trim();
+    state.lastReward = `${message}${streakPhrase}`.trim();
 
     trackEvent('mini_ritual_complete', {
       actionId: state.todayActionId,
       autoCompleted,
       streak: state.streak,
       progress: state.progress,
+      firstCompletionToday: isFirstCompletionToday,
+      todayCompletions: state.todayCompletions,
+      sessionCompletions: session.completions,
+      restoredFromReload: Boolean(options.restoredFromReload),
     });
 
-    stopTimer();
+    stopTimer({ resetRitualState: true });
     saveAll();
+    saveSessionState();
     renderAll();
-    announce(message);
+    announce(state.lastReward);
   }
 
   function switchAction() {
+    syncTodayState();
+
     const previousActionId = state.todayActionId;
     const nextAction = pickRandomAction(previousActionId);
 
@@ -364,16 +392,25 @@
       return;
     }
 
-    state.todayActionId = nextAction.id;
-    stopTimer();
+    const interrupted = hasRitualProgress();
 
-    trackEvent('micro_action_shuffled', { from: previousActionId, to: nextAction.id });
+    state.todayActionId = nextAction.id;
+    stopTimer({ resetRitualState: true });
+
+    trackEvent('micro_action_shuffled', {
+      from: previousActionId,
+      to: nextAction.id,
+      interrupted,
+      todayCompletions: state.todayCompletions || 0,
+    });
     saveState();
 
-    announce('Подобрал другой безопасный микрошаг.');
+    announce(interrupted ? 'Новый микрошаг готов. Предыдущий таймер остановлен.' : 'Подобрал другой безопасный микрошаг.');
   }
 
   function saveEnergyBefore() {
+    syncTodayState();
+
     const beforeValue = Number(refs.energyBefore?.value || 0);
     if (!beforeValue) return;
 
@@ -386,6 +423,8 @@
   }
 
   function saveEnergyAfter() {
+    syncTodayState();
+
     const afterValue = Number(refs.energyAfter?.value || 0);
     if (!afterValue) return;
 
@@ -406,6 +445,8 @@
   }
 
   function setReturnIntent() {
+    syncTodayState();
+
     if (state.todayReturnIntent) {
       announce('Намерение на завтра уже отмечено 👌');
       return;
@@ -429,13 +470,21 @@
     handleActivationClick();
   }
 
-  function startTimer(durationSec) {
+  function startTimer(durationSec, options = {}) {
     stopTimer();
 
-    timerEndsAt = Date.now() + durationSec * 1000;
+    const startedAt = Number(options.startedAt) || Date.now();
+    timerEndsAt = startedAt + durationSec * 1000;
     refs.timerWrap?.removeAttribute('hidden');
 
-    updateTimerUI(durationSec, durationSec);
+    const initialRemainingSec = Math.max(0, Math.ceil((timerEndsAt - Date.now()) / 1000));
+    updateTimerUI(initialRemainingSec, durationSec);
+
+    if (timerEndsAt <= Date.now()) {
+      stopTimer();
+      completeRitual(true, { restoredFromReload: Boolean(options.restoredFromReload) });
+      return;
+    }
 
     timerInterval = window.setInterval(() => {
       const remainingMs = timerEndsAt - Date.now();
@@ -444,12 +493,12 @@
 
       if (remainingMs <= 0) {
         stopTimer();
-        completeRitual(true);
+        completeRitual(true, { restoredFromReload: Boolean(options.restoredFromReload) });
       }
     }, prefersReducedMotion ? 500 : 200);
   }
 
-  function stopTimer() {
+  function stopTimer(options = {}) {
     if (timerInterval) {
       clearInterval(timerInterval);
       timerInterval = null;
@@ -463,6 +512,11 @@
 
     if (refs.timerFill) {
       refs.timerFill.style.width = '0%';
+    }
+
+    if (options.resetRitualState) {
+      state.ritualStartedAt = null;
+      state.ritualDurationSec = null;
     }
   }
 
@@ -484,7 +538,10 @@
   }
 
   function renderStats() {
+    const todayCompletions = normalizeCount(state.todayCompletions);
+
     if (refs.startsValue) refs.startsValue.textContent = String(state.startsToday);
+    if (refs.completionsTodayValue) refs.completionsTodayValue.textContent = String(todayCompletions);
     if (refs.xpValue) refs.xpValue.textContent = String(state.xp);
     if (refs.streakValue) refs.streakValue.textContent = String(state.streak);
 
@@ -500,10 +557,12 @@
     }
 
     if (refs.statusChip) {
-      if (state.todayCompleted) {
-        refs.statusChip.textContent = 'Сегодняшний ритуал выполнен ✅';
+      if (isRitualRunning()) {
+        refs.statusChip.textContent = 'Идёт микрошаг ⏱️';
+      } else if (todayCompletions > 0) {
+        refs.statusChip.textContent = `Выполнено сегодня: ${todayCompletions}`;
       } else if (state.startsToday > 0) {
-        refs.statusChip.textContent = 'В процессе: остался 1 мини-ритуал';
+        refs.statusChip.textContent = 'Готов к первому микрошагу';
       } else {
         refs.statusChip.textContent = 'Готов к мягкому старту';
       }
@@ -541,17 +600,26 @@
       });
     }
 
+    const canStart = state.startsToday > 0;
+    const inProgress = hasRitualProgress();
+    const running = isRitualRunning();
+
     if (refs.ritualStartBtn) {
-      refs.ritualStartBtn.disabled = state.todayCompleted;
-      refs.ritualStartBtn.textContent = state.todayCompleted ? 'Сегодня выполнено ✅' : 'Сделай сейчас (60 сек)';
+      refs.ritualStartBtn.disabled = !canStart || inProgress;
+
+      if (!canStart) {
+        refs.ritualStartBtn.textContent = 'Сначала «Польза в 1 клик»';
+      } else if (running) {
+        refs.ritualStartBtn.textContent = 'Шаг уже в процессе ⏱️';
+      } else if (inProgress) {
+        refs.ritualStartBtn.textContent = 'Шаг запущен — заверши или смени';
+      } else {
+        refs.ritualStartBtn.textContent = 'Сделай сейчас (60 сек)';
+      }
     }
 
     if (refs.ritualCompleteBtn) {
-      refs.ritualCompleteBtn.disabled = state.todayCompleted;
-    }
-
-    if (state.todayCompleted) {
-      stopTimer();
+      refs.ritualCompleteBtn.disabled = !canStart || !inProgress;
     }
   }
 
@@ -635,6 +703,11 @@
     if (!refs.ritualSection) return;
 
     refs.ritualSection.classList.add('is-active');
+
+    if (typeof refs.ritualSection.scrollIntoView !== 'function') {
+      return;
+    }
+
     if (!prefersReducedMotion) {
       refs.ritualSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else {
@@ -653,6 +726,60 @@
 
   function hideReentryMessage() {
     if (refs.reentryCard) refs.reentryCard.hidden = true;
+  }
+
+  function syncTodayState() {
+    const freshToday = getLocalISODate();
+    const needsRollover = today !== freshToday || state.todayDate !== freshToday;
+
+    today = freshToday;
+    session = resetSessionForToday(session, today);
+
+    if (!needsRollover) {
+      saveSessionState();
+      return;
+    }
+
+    state = rolloverStateForToday(state, today);
+    ensureTodayAction();
+    stopTimer({ resetRitualState: true });
+    saveState();
+    saveSessionState();
+  }
+
+  function hasRitualProgress() {
+    return Number.isFinite(Number(state.ritualStartedAt)) && Number(state.ritualStartedAt) > 0 && Number(state.ritualDurationSec) > 0;
+  }
+
+  function getRitualEndsAt() {
+    if (!hasRitualProgress()) return null;
+    return Number(state.ritualStartedAt) + Number(state.ritualDurationSec) * 1000;
+  }
+
+  function isRitualRunning() {
+    const endsAt = getRitualEndsAt();
+    return Boolean(endsAt && endsAt > Date.now());
+  }
+
+  function restoreRitualProgressAfterReload() {
+    if (!hasRitualProgress()) return;
+
+    const durationSec = clampNumber(state.ritualDurationSec, 30, 90, 60);
+    const startedAt = Number(state.ritualStartedAt);
+    const endsAt = startedAt + durationSec * 1000;
+
+    if (!Number.isFinite(startedAt) || startedAt <= 0) {
+      stopTimer({ resetRitualState: true });
+      saveState();
+      return;
+    }
+
+    if (endsAt <= Date.now()) {
+      completeRitual(true, { restoredFromReload: true });
+      return;
+    }
+
+    startTimer(durationSec, { startedAt, restoredFromReload: true });
   }
 
   function ensureTodayAction() {
@@ -781,6 +908,7 @@
       exportedAt: new Date().toISOString(),
       state,
       metrics,
+      session,
     };
 
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -810,6 +938,14 @@
     saveToStorage(METRICS_KEY, metrics);
   }
 
+  function saveSessionState() {
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } catch (error) {
+      console.warn(`Failed to save ${SESSION_KEY}`, error);
+    }
+  }
+
   function saveToStorage(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
@@ -830,12 +966,42 @@
     }
   }
 
+  function loadSessionState() {
+    const fallback = { date: today, completions: 0 };
+
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (!raw) return fallback;
+
+      const parsed = JSON.parse(raw);
+      return resetSessionForToday(parsed, today);
+    } catch (error) {
+      console.warn(`Failed to parse ${SESSION_KEY}, using defaults`, error);
+      return fallback;
+    }
+  }
+
+  function resetSessionForToday(inputSession, currentDate) {
+    const next = {
+      date: currentDate,
+      completions: 0,
+      ...(inputSession || {}),
+    };
+
+    if (next.date !== currentDate) {
+      next.date = currentDate;
+      next.completions = 0;
+    }
+
+    next.completions = normalizeCount(next.completions);
+    return next;
+  }
+
   function rolloverStateForToday(inputState, currentDate) {
     const next = { ...deepClone(DEFAULT_STATE), ...inputState };
 
     if (next.todayDate !== currentDate) {
       next.startsToday = 0;
-      next.todayCompleted = next.lastCompletionDate === currentDate;
       next.todayActionId = null;
       next.todayEnergyBefore = null;
       next.todayEnergyAfter = null;
@@ -843,7 +1009,21 @@
       next.ritualStartedAt = null;
       next.ritualDurationSec = null;
       next.todayDate = currentDate;
+
+      if (next.lastCompletionDate === currentDate) {
+        next.todayCompletions = Math.max(1, normalizeCount(next.todayCompletions));
+      } else {
+        next.todayCompletions = 0;
+      }
     }
+
+    next.todayCompletions = normalizeCount(next.todayCompletions);
+
+    if (next.lastCompletionDate === currentDate && next.todayCompletions === 0) {
+      next.todayCompletions = 1;
+    }
+
+    next.todayCompleted = next.todayCompletions > 0;
 
     if (next.lastCompletionDate) {
       const completionGap = diffDays(next.lastCompletionDate, currentDate);
@@ -982,6 +1162,12 @@
     const number = Number(value);
     if (!Number.isFinite(number)) return fallback;
     return Math.min(max, Math.max(min, number));
+  }
+
+  function normalizeCount(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) return 0;
+    return Math.floor(number);
   }
 
   function deepClone(value) {
