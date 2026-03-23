@@ -104,6 +104,30 @@ h3 {
   margin-bottom: 12px;
 }
 
+.mode-selector {
+  margin-top: 4px;
+  margin-bottom: 10px;
+}
+
+.plan-anchors {
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.mode-label,
+.plan-label {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.mode-chips,
+.plan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .status-chip {
   margin: 0;
   font-size: 0.85rem;
@@ -169,6 +193,24 @@ h3 {
 
 .btn-text:hover {
   background: var(--accent-soft);
+}
+
+.btn-chip {
+  width: auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface-soft);
+  border-color: var(--border);
+}
+
+.btn-chip[aria-pressed='true'] {
+  color: #1b3ea9;
+  background: #edf3ff;
+  border-color: #bfd0ff;
 }
 
 .btn:focus-visible,

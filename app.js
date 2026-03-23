@@ -64,6 +64,36 @@
     'Без вины и без стыда: один короткий шаг сейчас.',
   ];
 
+  const ACTION_MODES = {
+    any: {
+      label: 'Любой микрошаг',
+      pillars: ['nutrition', 'environment', 'recovery'],
+      toast: 'Режим «Любой». Выбираем из всех безопасных шагов.',
+    },
+    nutrition: {
+      label: 'Нужен заряд',
+      pillars: ['nutrition'],
+      toast: 'Режим «Нужен заряд». Подобрал шаг про питание/гидратацию.',
+    },
+    environment: {
+      label: 'Отвлекаюсь',
+      pillars: ['environment'],
+      toast: 'Режим «Отвлекаюсь». Подобрал шаг для среды и фокуса.',
+    },
+    recovery: {
+      label: 'Тяжело начать',
+      pillars: ['recovery'],
+      toast: 'Режим «Тяжело начать». Подобрал максимально мягкий шаг.',
+    },
+  };
+
+  const PLAN_ANCHORS = {
+    wake: { label: 'После подъёма', intro: 'после подъёма' },
+    break: { label: 'После первого перерыва', intro: 'после первого перерыва' },
+    workEnd: { label: 'После работы / учёбы', intro: 'после работы или учёбы' },
+    evening: { label: 'Перед сном', intro: 'перед сном' },
+  };
+
   const DEFAULT_STATE = {
     version: 2,
     startsTotal: 0,
@@ -75,10 +105,12 @@
     progress: 0,
     todayDate: null,
     todayActionId: null,
+    todayActionMode: 'any',
     todayCompleted: false,
     todayEnergyBefore: null,
     todayEnergyAfter: null,
     todayReturnIntent: false,
+    todayPlanAnchor: null,
     lastVisitDate: null,
     lastStartDate: null,
     lastCompletionDate: null,
@@ -192,6 +224,7 @@
     refs.ritualStartBtn = document.getElementById('ritual-start-btn');
     refs.ritualCompleteBtn = document.getElementById('ritual-complete-btn');
     refs.actionShuffleBtn = document.getElementById('action-shuffle-btn');
+    refs.actionModeButtons = Array.from(document.querySelectorAll('[data-action-mode]'));
 
     refs.timerWrap = document.getElementById('timer-wrap');
     refs.timerFill = document.getElementById('timer-fill');
@@ -208,6 +241,7 @@
     refs.tomorrowStep = document.getElementById('tomorrow-step');
     refs.returnIntentBtn = document.getElementById('return-intent-btn');
     refs.returnIntentStatus = document.getElementById('return-intent-status');
+    refs.planAnchorButtons = Array.from(document.querySelectorAll('[data-plan-anchor]'));
 
     refs.reentryCard = document.getElementById('reentry-card');
     refs.reentryText = document.getElementById('reentry-text');
@@ -226,6 +260,12 @@
       renderAll();
     });
 
+    refs.actionModeButtons?.forEach((button) => {
+      button.addEventListener('click', () => {
+        setActionMode(button.dataset.actionMode);
+      });
+    });
+
     refs.energyBefore?.addEventListener('input', () => {
       refs.energyBeforeValue.textContent = refs.energyBefore.value;
     });
@@ -236,6 +276,12 @@
 
     refs.saveBeforeBtn?.addEventListener('click', saveEnergyBefore);
     refs.saveAfterBtn?.addEventListener('click', saveEnergyAfter);
+
+    refs.planAnchorButtons?.forEach((button) => {
+      button.addEventListener('click', () => {
+        setPlanAnchor(button.dataset.planAnchor);
+      });
+    });
 
     refs.returnIntentBtn?.addEventListener('click', setReturnIntent);
     refs.reentryBtn?.addEventListener('click', handleReentryRestart);
@@ -381,11 +427,12 @@
     announce(state.lastReward);
   }
 
-  function switchAction() {
+  function switchAction(options = {}) {
     syncTodayState();
 
+    const mode = normalizeActionMode(options.mode || state.todayActionMode);
     const previousActionId = state.todayActionId;
-    const nextAction = pickRandomAction(previousActionId);
+    const nextAction = pickRandomAction(previousActionId, mode);
 
     if (!nextAction) {
       announce('Нет доступных микрошагов.');
@@ -401,11 +448,47 @@
       from: previousActionId,
       to: nextAction.id,
       interrupted,
+      mode,
       todayCompletions: state.todayCompletions || 0,
     });
     saveState();
 
     announce(interrupted ? 'Новый микрошаг готов. Предыдущий таймер остановлен.' : 'Подобрал другой безопасный микрошаг.');
+  }
+
+  function setActionMode(mode) {
+    syncTodayState();
+
+    const nextMode = normalizeActionMode(mode);
+    const modeConfig = ACTION_MODES[nextMode] || ACTION_MODES.any;
+    const modeChanged = state.todayActionMode !== nextMode;
+    const interrupted = hasRitualProgress();
+
+    state.todayActionMode = nextMode;
+
+    const nextAction = pickRandomAction(modeChanged ? state.todayActionId : null, nextMode);
+    if (nextAction) {
+      state.todayActionId = nextAction.id;
+    }
+
+    if (interrupted) {
+      stopTimer({ resetRitualState: true });
+    }
+
+    trackEvent('action_mode_set', {
+      mode: nextMode,
+      modeChanged,
+      interrupted,
+      actionId: state.todayActionId,
+    });
+
+    saveState();
+    renderActionModeSelector();
+    renderActionCard();
+    renderTomorrowStep();
+
+    const baseMessage = modeConfig.toast || `Режим: ${modeConfig.label}`;
+    announce(interrupted ? `${baseMessage} Таймер предыдущего шага остановлен.` : baseMessage);
   }
 
   function saveEnergyBefore() {
@@ -447,22 +530,90 @@
   function setReturnIntent() {
     syncTodayState();
 
-    if (state.todayReturnIntent) {
+    const created = activateReturnIntent({
+      source: 'button',
+      anchor: state.todayPlanAnchor || null,
+      tomorrowStep: refs.tomorrowStep?.textContent || '',
+    });
+
+    if (!created) {
       announce('Намерение на завтра уже отмечено 👌');
       return;
+    }
+
+    saveAll();
+    renderReturnIntent();
+    renderPlanAnchors();
+    renderStats();
+
+    if (state.todayPlanAnchor) {
+      const anchorLabel = PLAN_ANCHORS[state.todayPlanAnchor]?.label || 'выбранным якорем';
+      announce(`План на завтра сохранён: 1 шаг ${anchorLabel.toLowerCase()}.`);
+    } else {
+      announce('План на завтра сохранён: 1 короткий шаг без давления.');
+    }
+  }
+
+  function setPlanAnchor(anchorId) {
+    syncTodayState();
+
+    const anchor = normalizePlanAnchor(anchorId);
+    if (!anchor) {
+      announce('Не удалось выбрать якорь. Попробуй ещё раз.');
+      return;
+    }
+
+    const changed = state.todayPlanAnchor !== anchor;
+    state.todayPlanAnchor = anchor;
+
+    trackEvent('plan_anchor_set', {
+      anchor,
+      changed,
+      mode: state.todayActionMode,
+      tomorrowStep: refs.tomorrowStep?.textContent || '',
+    });
+
+    const createdIntent = activateReturnIntent({
+      source: 'plan_anchor',
+      anchor,
+      tomorrowStep: refs.tomorrowStep?.textContent || '',
+    });
+
+    saveAll();
+    renderTomorrowStep();
+    renderReturnIntent();
+    renderPlanAnchors();
+    renderStats();
+
+    const label = PLAN_ANCHORS[anchor]?.label || 'этот якорь';
+
+    if (!changed) {
+      announce(`Якорь уже выбран: ${label}.`);
+      return;
+    }
+
+    if (createdIntent) {
+      announce(`Якорь «${label}» сохранён. План на завтра зафиксирован.`);
+    } else {
+      announce(`Якорь «${label}» сохранён.`);
+    }
+  }
+
+  function activateReturnIntent(meta = {}) {
+    if (state.todayReturnIntent) {
+      return false;
     }
 
     state.todayReturnIntent = true;
     state.xp += 2;
     metrics.returnIntentCount += 1;
 
-    trackEvent('return_intent_set', { tomorrowStep: refs.tomorrowStep?.textContent || '' });
+    trackEvent('return_intent_set', {
+      tomorrowStep: refs.tomorrowStep?.textContent || '',
+      ...meta,
+    });
 
-    saveAll();
-    renderReturnIntent();
-    renderStats();
-
-    announce('План на завтра сохранён: 1 короткий шаг без давления.');
+    return true;
   }
 
   function handleReentryRestart() {
@@ -531,10 +682,12 @@
 
   function renderAll() {
     renderStats();
+    renderActionModeSelector();
     renderActionCard();
     renderEnergySection();
     renderTomorrowStep();
     renderReturnIntent();
+    renderPlanAnchors();
   }
 
   function renderStats() {
@@ -578,6 +731,18 @@
 
     refs.progressCircle.style.strokeDasharray = `${circumference}`;
     refs.progressCircle.style.strokeDashoffset = `${offset}`;
+  }
+
+  function renderActionModeSelector() {
+    if (!Array.isArray(refs.actionModeButtons) || !refs.actionModeButtons.length) return;
+
+    const activeMode = normalizeActionMode(state.todayActionMode);
+
+    refs.actionModeButtons.forEach((button) => {
+      const mode = normalizeActionMode(button.dataset.actionMode);
+      const isActive = mode === activeMode;
+      button.setAttribute('aria-pressed', String(isActive));
+    });
   }
 
   function renderActionCard() {
@@ -673,30 +838,46 @@
 
     const action = getTodayAction();
     const stepByPillar = {
-      nutrition: 'Завтра: перед первым кофе — 3 спокойных глотка воды.',
-      environment: 'Завтра: начни день с 60 секунд дневного света.',
-      recovery: 'Завтра: 1 минуту дыхания 4/6 после пробуждения.',
+      nutrition: 'сделай 3 спокойных глотка воды.',
+      environment: 'начни с 60 секунд дневного света.',
+      recovery: 'сделай 1 минуту дыхания 4/6.',
     };
 
-    let text = 'Завтра: открой страницу и сделай один микрошаг без давления.';
+    let stepText = 'открой страницу и сделай один микрошаг без давления.';
 
     if (state.todayCompleted && action?.pillar) {
-      text = stepByPillar[action.pillar] || text;
+      stepText = stepByPillar[action.pillar] || stepText;
     }
 
-    refs.tomorrowStep.textContent = text;
+    const anchor = PLAN_ANCHORS[normalizePlanAnchor(state.todayPlanAnchor)];
+    refs.tomorrowStep.textContent = anchor ? `Завтра ${anchor.intro}: ${stepText}` : `Завтра: ${stepText}`;
   }
 
   function renderReturnIntent() {
     if (!refs.returnIntentStatus) return;
 
     if (state.todayReturnIntent) {
-      refs.returnIntentStatus.textContent = 'План зафиксирован. Завтра достаточно одного шага.';
+      const anchor = PLAN_ANCHORS[normalizePlanAnchor(state.todayPlanAnchor)];
+      refs.returnIntentStatus.textContent = anchor
+        ? `План зафиксирован (${anchor.label.toLowerCase()}). Завтра достаточно одного шага.`
+        : 'План зафиксирован. Завтра достаточно одного шага.';
       refs.returnIntentBtn?.setAttribute('aria-pressed', 'true');
     } else {
       refs.returnIntentStatus.textContent = 'Отметь намерение, чтобы снять лишнее решение на завтра.';
       refs.returnIntentBtn?.setAttribute('aria-pressed', 'false');
     }
+  }
+
+  function renderPlanAnchors() {
+    if (!Array.isArray(refs.planAnchorButtons) || !refs.planAnchorButtons.length) return;
+
+    const activeAnchor = normalizePlanAnchor(state.todayPlanAnchor);
+
+    refs.planAnchorButtons.forEach((button) => {
+      const anchor = normalizePlanAnchor(button.dataset.planAnchor);
+      const isActive = Boolean(anchor && anchor === activeAnchor);
+      button.setAttribute('aria-pressed', String(isActive));
+    });
   }
 
   function revealRitualSection() {
@@ -783,11 +964,18 @@
   }
 
   function ensureTodayAction() {
-    if (state.todayActionId && getActionById(state.todayActionId)) {
-      return;
+    const normalizedMode = normalizeActionMode(state.todayActionMode);
+    state.todayActionMode = normalizedMode;
+
+    const currentAction = getActionById(state.todayActionId);
+    if (currentAction) {
+      const modePool = getActionsByMode(normalizedMode);
+      if (modePool.some((item) => item.id === currentAction.id)) {
+        return;
+      }
     }
 
-    const action = pickRandomAction(null);
+    const action = pickRandomAction(null, normalizedMode);
     if (action) {
       state.todayActionId = action.id;
       saveState();
@@ -802,10 +990,38 @@
     return actions.find((item) => item.id === actionId) || null;
   }
 
-  function pickRandomAction(excludeId) {
-    const pool = actions.filter((item) => item.id !== excludeId);
-    if (!pool.length) return actions[0] || null;
+  function pickRandomAction(excludeId, mode = 'any') {
+    const filteredByMode = getActionsByMode(mode);
+    const basePool = filteredByMode.length ? filteredByMode : actions;
+    const pool = basePool.filter((item) => item.id !== excludeId);
+
+    if (!pool.length) {
+      return basePool[0] || actions[0] || null;
+    }
+
     return pool[Math.floor(Math.random() * pool.length)] || pool[0];
+  }
+
+  function getActionsByMode(mode = 'any') {
+    const normalizedMode = normalizeActionMode(mode);
+    const pillars = ACTION_MODES[normalizedMode]?.pillars || ACTION_MODES.any.pillars;
+
+    if (!Array.isArray(pillars) || !pillars.length) {
+      return actions;
+    }
+
+    const pool = actions.filter((item) => pillars.includes(item.pillar));
+    return pool.length ? pool : actions;
+  }
+
+  function normalizeActionMode(mode) {
+    if (!mode || typeof mode !== 'string') return 'any';
+    return ACTION_MODES[mode] ? mode : 'any';
+  }
+
+  function normalizePlanAnchor(anchorId) {
+    if (!anchorId || typeof anchorId !== 'string') return null;
+    return PLAN_ANCHORS[anchorId] ? anchorId : null;
   }
 
   function pickReward(key) {
@@ -1003,9 +1219,11 @@
     if (next.todayDate !== currentDate) {
       next.startsToday = 0;
       next.todayActionId = null;
+      next.todayActionMode = 'any';
       next.todayEnergyBefore = null;
       next.todayEnergyAfter = null;
       next.todayReturnIntent = false;
+      next.todayPlanAnchor = null;
       next.ritualStartedAt = null;
       next.ritualDurationSec = null;
       next.todayDate = currentDate;
@@ -1016,6 +1234,9 @@
         next.todayCompletions = 0;
       }
     }
+
+    next.todayActionMode = normalizeActionMode(next.todayActionMode);
+    next.todayPlanAnchor = normalizePlanAnchor(next.todayPlanAnchor);
 
     next.todayCompletions = normalizeCount(next.todayCompletions);
 

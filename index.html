@@ -76,6 +76,16 @@
           <button class="btn btn-text" id="action-shuffle-btn" type="button">Другой микрошаг</button>
         </div>
 
+        <div class="mode-selector" role="group" aria-label="Подбор шага по состоянию">
+          <p class="mode-label">Сейчас:</p>
+          <div class="mode-chips">
+            <button class="btn btn-chip" data-action-mode="any" type="button" aria-pressed="true">Любой</button>
+            <button class="btn btn-chip" data-action-mode="recovery" type="button" aria-pressed="false">Тяжело начать</button>
+            <button class="btn btn-chip" data-action-mode="environment" type="button" aria-pressed="false">Отвлекаюсь</button>
+            <button class="btn btn-chip" data-action-mode="nutrition" type="button" aria-pressed="false">Нужен заряд</button>
+          </div>
+        </div>
+
         <article class="action-card" aria-live="polite">
           <p class="badge" id="action-pillar">—</p>
           <h3 id="action-title">Загрузка шага...</h3>
@@ -129,6 +139,17 @@
       <section class="tomorrow card" aria-labelledby="tomorrow-title">
         <h2 id="tomorrow-title">Завтра без давления</h2>
         <p id="tomorrow-step">Завтра: открой страницу и сделай один микрошаг без давления.</p>
+
+        <div class="plan-anchors" role="group" aria-label="Якорь для шага завтра">
+          <p class="plan-label">Выбери удобный якорь (если-то):</p>
+          <div class="plan-chips">
+            <button class="btn btn-chip" data-plan-anchor="wake" type="button" aria-pressed="false">После подъёма</button>
+            <button class="btn btn-chip" data-plan-anchor="break" type="button" aria-pressed="false">После первого перерыва</button>
+            <button class="btn btn-chip" data-plan-anchor="workEnd" type="button" aria-pressed="false">После работы / учёбы</button>
+            <button class="btn btn-chip" data-plan-anchor="evening" type="button" aria-pressed="false">Перед сном</button>
+          </div>
+        </div>
+
         <button class="btn btn-primary" id="return-intent-btn" type="button">
           Я вернусь завтра на 1 шаг
         </button>
