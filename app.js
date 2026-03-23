@@ -6,6 +6,7 @@
   const SESSION_KEY = 'project-energy-session-v1';
   const sessionStartTs = Date.now();
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const WEEKLY_WINDOW_DAYS = 7;
 
   const FALLBACK_ACTIONS = {
     actions: [
@@ -94,6 +95,12 @@
     evening: { label: 'Перед сном', intro: 'перед сном' },
   };
 
+  const SOFT_NEXT_STEP_BY_PILLAR = {
+    nutrition: 'Если есть ресурс, повтори ещё один мягкий шаг про питание или воду.',
+    environment: 'Если есть ресурс, сделай следующий шаг для фокуса в среде.',
+    recovery: 'Если есть ресурс, выбери ещё один очень мягкий шаг на восстановление.',
+  };
+
   const DEFAULT_STATE = {
     version: 2,
     startsTotal: 0,
@@ -120,6 +127,12 @@
     ritualStartedAt: null,
     ritualDurationSec: null,
     reentryMessageSeenDate: null,
+    onboardingSeen: false,
+    onboardingSeenAt: null,
+    onboardingDismissedAt: null,
+    onboardingLastOpenedAt: null,
+    lastCompletionRecap: null,
+    completionHistory: [],
     energyHistory: [],
   };
 
@@ -199,11 +212,17 @@
     }
 
     renderAll();
+    maybeShowOnboardingOnFirstVisit();
     exposeDebug();
   }
 
   function cacheRefs() {
     refs.oneClickBtn = document.getElementById('one-click-cta');
+    refs.howItWorksBtn = document.getElementById('how-it-works-btn');
+    refs.onboardingCard = document.getElementById('onboarding-card');
+    refs.onboardingStartBtn = document.getElementById('onboarding-start-btn');
+    refs.onboardingSkipBtn = document.getElementById('onboarding-skip-btn');
+
     refs.startsValue = document.getElementById('starts-value');
     refs.completionsTodayValue = document.getElementById('completions-today-value');
     refs.xpValue = document.getElementById('xp-value');
@@ -230,6 +249,13 @@
     refs.timerFill = document.getElementById('timer-fill');
     refs.timerText = document.getElementById('timer-text');
 
+    refs.recapCard = document.getElementById('completion-recap');
+    refs.recapChip = document.getElementById('recap-chip');
+    refs.recapDone = document.getElementById('recap-done');
+    refs.recapEnergy = document.getElementById('recap-energy');
+    refs.recapNext = document.getElementById('recap-next');
+    refs.recapNextBtn = document.getElementById('recap-next-btn');
+
     refs.energyBefore = document.getElementById('energy-before');
     refs.energyAfter = document.getElementById('energy-after');
     refs.energyBeforeValue = document.getElementById('energy-before-value');
@@ -243,6 +269,13 @@
     refs.returnIntentStatus = document.getElementById('return-intent-status');
     refs.planAnchorButtons = Array.from(document.querySelectorAll('[data-plan-anchor]'));
 
+    refs.weeklyRange = document.getElementById('weekly-range');
+    refs.weeklyCompletions = document.getElementById('weekly-completions');
+    refs.weeklyActiveDays = document.getElementById('weekly-active-days');
+    refs.weeklyBefore = document.getElementById('weekly-before');
+    refs.weeklyAfter = document.getElementById('weekly-after');
+    refs.weeklyInsight = document.getElementById('weekly-insight');
+
     refs.reentryCard = document.getElementById('reentry-card');
     refs.reentryText = document.getElementById('reentry-text');
     refs.reentryBtn = document.getElementById('reentry-btn');
@@ -253,8 +286,13 @@
 
   function bindEvents() {
     refs.oneClickBtn?.addEventListener('click', handleActivationClick);
+    refs.howItWorksBtn?.addEventListener('click', toggleOnboardingFromUi);
+    refs.onboardingStartBtn?.addEventListener('click', handleOnboardingStart);
+    refs.onboardingSkipBtn?.addEventListener('click', () => closeOnboarding('skip'));
+
     refs.ritualStartBtn?.addEventListener('click', handleRitualStart);
     refs.ritualCompleteBtn?.addEventListener('click', () => completeRitual(false));
+    refs.recapNextBtn?.addEventListener('click', handleDoAnotherCycle);
     refs.actionShuffleBtn?.addEventListener('click', () => {
       switchAction();
       renderAll();
@@ -288,8 +326,115 @@
     refs.exportMetricsBtn?.addEventListener('click', exportMetrics);
   }
 
+  function maybeShowOnboardingOnFirstVisit() {
+    if (!refs.onboardingCard) return;
+
+    if (state.onboardingSeen) {
+      refs.onboardingCard.hidden = true;
+      renderOnboardingToggle();
+      return;
+    }
+
+    markOnboardingSeen('first_visit');
+    openOnboarding({ source: 'first_visit' });
+  }
+
+  function markOnboardingSeen(source = 'unknown') {
+    if (state.onboardingSeen) {
+      return false;
+    }
+
+    state.onboardingSeen = true;
+    state.onboardingSeenAt = Date.now();
+    trackEvent('onboarding_seen', { source });
+    return true;
+  }
+
+  function openOnboarding(options = {}) {
+    if (!refs.onboardingCard) return;
+
+    refs.onboardingCard.hidden = false;
+    state.onboardingLastOpenedAt = Date.now();
+
+    trackEvent('onboarding_opened', {
+      source: options.source || 'manual',
+      seen: Boolean(state.onboardingSeen),
+    });
+
+    saveState();
+    renderOnboardingToggle();
+
+    if (typeof refs.onboardingCard.scrollIntoView === 'function') {
+      refs.onboardingCard.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' });
+    }
+
+    if (options.focusStart) {
+      refs.onboardingStartBtn?.focus();
+    }
+  }
+
+  function closeOnboarding(reason = 'skip', options = {}) {
+    if (refs.onboardingCard) {
+      refs.onboardingCard.hidden = true;
+    }
+
+    if (!state.onboardingSeen) {
+      markOnboardingSeen(reason);
+    }
+
+    state.onboardingDismissedAt = Date.now();
+    saveState();
+    renderOnboardingToggle();
+
+    if (!options.skipTrack) {
+      trackEvent('onboarding_closed', { reason });
+    }
+  }
+
+  function toggleOnboardingFromUi() {
+    if (!refs.onboardingCard) return;
+
+    if (refs.onboardingCard.hidden) {
+      openOnboarding({ source: 'manual_toggle', focusStart: true });
+      return;
+    }
+
+    closeOnboarding('manual_toggle');
+  }
+
+  function handleOnboardingStart() {
+    syncTodayState();
+
+    closeOnboarding('start');
+
+    if (state.startsToday > 0) {
+      revealRitualSection();
+      announce('Продолжаем. Выбери микрошаг и сделай его за 60 секунд.');
+      return;
+    }
+
+    handleActivationClick();
+  }
+
+  function renderOnboardingToggle() {
+    if (!refs.howItWorksBtn) return;
+
+    const isOpen = Boolean(refs.onboardingCard && !refs.onboardingCard.hidden);
+    refs.howItWorksBtn.setAttribute('aria-expanded', String(isOpen));
+    refs.howItWorksBtn.textContent = isOpen ? 'Скрыть объяснение' : 'Как это работает?';
+  }
+
   function handleActivationClick() {
     syncTodayState();
+
+    if (!state.onboardingSeen) {
+      markOnboardingSeen('activation');
+      saveState();
+    }
+
+    if (refs.onboardingCard && !refs.onboardingCard.hidden) {
+      closeOnboarding('activation', { skipTrack: true });
+    }
 
     const firstStartToday = state.startsToday === 0;
 
@@ -379,6 +524,7 @@
       return;
     }
 
+    const completedAction = getTodayAction();
     const previousCompletionDate = state.lastCompletionDate;
     const isFirstCompletionToday = previousCompletionDate !== today;
 
@@ -399,6 +545,9 @@
 
     state.progress = computeProgress(state);
 
+    state.lastCompletionRecap = buildCompletionRecap(completedAction);
+    upsertCompletionHistory();
+
     metrics.miniRitualCompletions += 1;
 
     session.completions = normalizeCount(session.completions) + 1;
@@ -410,13 +559,14 @@
     state.lastReward = `${message}${streakPhrase}`.trim();
 
     trackEvent('mini_ritual_complete', {
-      actionId: state.todayActionId,
+      actionId: completedAction?.id || state.todayActionId,
       autoCompleted,
       streak: state.streak,
       progress: state.progress,
       firstCompletionToday: isFirstCompletionToday,
       todayCompletions: state.todayCompletions,
       sessionCompletions: session.completions,
+      energyDelta: state.lastCompletionRecap?.energyDelta ?? null,
       restoredFromReload: Boolean(options.restoredFromReload),
     });
 
@@ -425,6 +575,29 @@
     saveSessionState();
     renderAll();
     announce(state.lastReward);
+  }
+
+  function handleDoAnotherCycle() {
+    syncTodayState();
+
+    if (hasRitualProgress()) {
+      announce('Шаг уже в процессе. Заверши его перед новым циклом.');
+      return;
+    }
+
+    if (state.startsToday < 1) {
+      handleActivationClick();
+    }
+
+    switchAction({ silent: true });
+    renderAll();
+    revealRitualSection();
+    handleRitualStart();
+
+    trackEvent('recap_next_cycle', {
+      todayCompletions: state.todayCompletions,
+      mode: state.todayActionMode,
+    });
   }
 
   function switchAction(options = {}) {
@@ -453,7 +626,9 @@
     });
     saveState();
 
-    announce(interrupted ? 'Новый микрошаг готов. Предыдущий таймер остановлен.' : 'Подобрал другой безопасный микрошаг.');
+    if (!options.silent) {
+      announce(interrupted ? 'Новый микрошаг готов. Предыдущий таймер остановлен.' : 'Подобрал другой безопасный микрошаг.');
+    }
   }
 
   function setActionMode(mode) {
@@ -485,6 +660,7 @@
     saveState();
     renderActionModeSelector();
     renderActionCard();
+    renderCompletionRecap();
     renderTomorrowStep();
 
     const baseMessage = modeConfig.toast || `Режим: ${modeConfig.label}`;
@@ -499,9 +675,15 @@
 
     state.todayEnergyBefore = beforeValue;
     trackEvent('energy_before_saved', { value: beforeValue });
+
+    upsertEnergyHistory();
+    upsertCompletionHistory();
+    syncRecapEnergyFromTodayValues();
     saveState();
 
     renderEnergyFeedback();
+    renderCompletionRecap();
+    renderWeeklyBenefit();
     announce('Энергия «до» сохранена.');
   }
 
@@ -515,6 +697,8 @@
     trackEvent('energy_after_saved', { value: afterValue });
 
     upsertEnergyHistory();
+    upsertCompletionHistory();
+    syncRecapEnergyFromTodayValues();
     saveState();
 
     const delta = getEnergyDelta();
@@ -525,6 +709,8 @@
     }
 
     renderEnergyFeedback();
+    renderCompletionRecap();
+    renderWeeklyBenefit();
   }
 
   function setReturnIntent() {
@@ -681,13 +867,16 @@
   }
 
   function renderAll() {
+    renderOnboardingToggle();
     renderStats();
     renderActionModeSelector();
     renderActionCard();
+    renderCompletionRecap();
     renderEnergySection();
     renderTomorrowStep();
     renderReturnIntent();
     renderPlanAnchors();
+    renderWeeklyBenefit();
   }
 
   function renderStats() {
@@ -786,6 +975,79 @@
     if (refs.ritualCompleteBtn) {
       refs.ritualCompleteBtn.disabled = !canStart || !inProgress;
     }
+  }
+
+  function renderCompletionRecap() {
+    if (!refs.recapCard) return;
+
+    const recap = getTodayCompletionRecap();
+    if (!recap || normalizeCount(state.todayCompletions) < 1) {
+      refs.recapCard.hidden = true;
+      return;
+    }
+
+    refs.recapCard.hidden = false;
+
+    const doneCount = normalizeCount(recap.todayCompletions || state.todayCompletions);
+    if (refs.recapChip) {
+      refs.recapChip.textContent = `${doneCount} ${formatStepWord(doneCount)} сегодня`;
+    }
+
+    if (refs.recapDone) {
+      refs.recapDone.textContent = `Сделано: ${recap.actionTitle || 'короткий микрошаг'}.`;
+    }
+
+    if (refs.recapEnergy) {
+      if (typeof recap.energyDelta === 'number') {
+        const sign = recap.energyDelta > 0 ? '+' : '';
+        refs.recapEnergy.textContent = `Энергия: ${recap.energyBefore ?? '—'} → ${recap.energyAfter ?? '—'} (${sign}${recap.energyDelta}).`;
+      } else if (typeof recap.energyAfter === 'number') {
+        refs.recapEnergy.textContent = `Энергия после шага: ${recap.energyAfter}/5.`;
+      } else if (typeof recap.energyBefore === 'number') {
+        refs.recapEnergy.textContent = `Энергия до шага: ${recap.energyBefore}/5. Сохрани «после», чтобы увидеть динамику.`;
+      } else {
+        refs.recapEnergy.textContent = 'Энергия: добавь «до/после», чтобы видеть изменение после микрошагов.';
+      }
+    }
+
+    if (refs.recapNext) {
+      refs.recapNext.textContent = `Следующий мягкий шаг: ${recap.nextStep || 'выбери ещё один короткий шаг и продолжай в спокойном темпе.'}`;
+    }
+
+    if (refs.recapNextBtn) {
+      const inProgress = hasRitualProgress();
+      refs.recapNextBtn.disabled = inProgress;
+      refs.recapNextBtn.textContent = inProgress ? 'Шаг уже в процессе ⏱️' : 'Сделать ещё один';
+    }
+  }
+
+  function renderWeeklyBenefit() {
+    if (!refs.weeklyInsight) return;
+
+    const summary = getWeeklySummary();
+
+    if (refs.weeklyRange) {
+      refs.weeklyRange.textContent = summary.rangeLabel;
+    }
+
+    if (refs.weeklyCompletions) {
+      refs.weeklyCompletions.textContent = String(summary.totalCompletions);
+    }
+
+    if (refs.weeklyActiveDays) {
+      refs.weeklyActiveDays.textContent = String(summary.activeDays);
+    }
+
+    if (refs.weeklyBefore) {
+      refs.weeklyBefore.textContent = typeof summary.avgBefore === 'number' ? `${summary.avgBefore.toFixed(1)}/5` : '—';
+    }
+
+    if (refs.weeklyAfter) {
+      refs.weeklyAfter.textContent = typeof summary.avgAfter === 'number' ? `${summary.avgAfter.toFixed(1)}/5` : '—';
+    }
+
+    refs.weeklyInsight.textContent = summary.insight;
+    refs.weeklyInsight.classList.toggle('is-empty', summary.isEmpty);
   }
 
   function renderEnergySection() {
@@ -1053,6 +1315,305 @@
     }
   }
 
+  function getTodayCompletionRecap() {
+    const recap = state.lastCompletionRecap;
+    if (!recap || typeof recap !== 'object') return null;
+    if (recap.date !== today) return null;
+    return recap;
+  }
+
+  function buildCompletionRecap(action) {
+    const energyBefore = typeof state.todayEnergyBefore === 'number' ? state.todayEnergyBefore : null;
+    const energyAfter = typeof state.todayEnergyAfter === 'number' ? state.todayEnergyAfter : null;
+    const energyDelta = typeof energyBefore === 'number' && typeof energyAfter === 'number' ? energyAfter - energyBefore : null;
+
+    return {
+      date: today,
+      timestamp: Date.now(),
+      actionId: action?.id || state.todayActionId || null,
+      actionTitle: action?.title || 'Короткий микрошаг',
+      pillar: action?.pillar || null,
+      todayCompletions: normalizeCount(state.todayCompletions),
+      energyBefore,
+      energyAfter,
+      energyDelta,
+      nextStep: buildSoftNextStep(action),
+    };
+  }
+
+  function buildSoftNextStep(action) {
+    const pillar = action?.pillar || state.lastCompletionRecap?.pillar || 'any';
+    return (
+      SOFT_NEXT_STEP_BY_PILLAR[pillar] ||
+      'Если есть ресурс, сделай ещё один короткий шаг в спокойном темпе.'
+    );
+  }
+
+  function syncRecapEnergyFromTodayValues() {
+    const recap = getTodayCompletionRecap();
+    if (!recap) return;
+
+    recap.energyBefore = typeof state.todayEnergyBefore === 'number' ? state.todayEnergyBefore : null;
+    recap.energyAfter = typeof state.todayEnergyAfter === 'number' ? state.todayEnergyAfter : null;
+    recap.energyDelta =
+      typeof recap.energyBefore === 'number' && typeof recap.energyAfter === 'number'
+        ? recap.energyAfter - recap.energyBefore
+        : null;
+    recap.todayCompletions = normalizeCount(state.todayCompletions);
+
+    state.lastCompletionRecap = { ...recap };
+  }
+
+  function upsertCompletionHistory() {
+    const before = typeof state.todayEnergyBefore === 'number' ? state.todayEnergyBefore : null;
+    const after = typeof state.todayEnergyAfter === 'number' ? state.todayEnergyAfter : null;
+    const completions = normalizeCount(state.todayCompletions);
+
+    const entry = {
+      date: today,
+      completions,
+      before,
+      after,
+      delta: typeof before === 'number' && typeof after === 'number' ? after - before : null,
+      updatedAt: Date.now(),
+    };
+
+    const history = sanitizeCompletionHistory(state.completionHistory);
+    const index = history.findIndex((item) => item.date === today);
+
+    if (index === -1) {
+      history.push(entry);
+    } else {
+      const current = history[index];
+      const mergedBefore = typeof before === 'number' ? before : current.before;
+      const mergedAfter = typeof after === 'number' ? after : current.after;
+
+      history[index] = {
+        ...current,
+        completions: Math.max(normalizeCount(current.completions), completions),
+        before: typeof mergedBefore === 'number' ? mergedBefore : null,
+        after: typeof mergedAfter === 'number' ? mergedAfter : null,
+        delta:
+          typeof mergedBefore === 'number' && typeof mergedAfter === 'number'
+            ? mergedAfter - mergedBefore
+            : null,
+        updatedAt: Date.now(),
+      };
+    }
+
+    state.completionHistory = sanitizeCompletionHistory(history).slice(-60);
+  }
+
+  function getWeeklySummary() {
+    const dates = getRecentDateRange(today, WEEKLY_WINDOW_DAYS);
+    const dateSet = new Set(dates);
+    const completionMap = new Map();
+
+    const history = sanitizeCompletionHistory(state.completionHistory);
+    history.forEach((entry) => {
+      if (!dateSet.has(entry.date)) return;
+      completionMap.set(entry.date, { ...entry });
+    });
+
+    const completionCountsFromMetrics = new Map();
+    const events = Array.isArray(metrics.events) ? metrics.events : [];
+
+    events.forEach((event) => {
+      if (event?.type !== 'mini_ritual_complete') return;
+      if (!dateSet.has(event.date)) return;
+      completionCountsFromMetrics.set(event.date, (completionCountsFromMetrics.get(event.date) || 0) + 1);
+    });
+
+    completionCountsFromMetrics.forEach((count, date) => {
+      const existing = completionMap.get(date);
+      if (!existing) {
+        completionMap.set(date, {
+          date,
+          completions: normalizeCount(count),
+          before: null,
+          after: null,
+          delta: null,
+          updatedAt: Date.now(),
+        });
+        return;
+      }
+
+      existing.completions = Math.max(normalizeCount(existing.completions), normalizeCount(count));
+    });
+
+    if (dateSet.has(today) && state.todayCompletions > 0) {
+      const existingToday = completionMap.get(today);
+      if (!existingToday) {
+        completionMap.set(today, {
+          date: today,
+          completions: normalizeCount(state.todayCompletions),
+          before: typeof state.todayEnergyBefore === 'number' ? state.todayEnergyBefore : null,
+          after: typeof state.todayEnergyAfter === 'number' ? state.todayEnergyAfter : null,
+          delta: getEnergyDelta(),
+          updatedAt: Date.now(),
+        });
+      } else {
+        existingToday.completions = Math.max(normalizeCount(existingToday.completions), normalizeCount(state.todayCompletions));
+      }
+    }
+
+    const energyMap = new Map();
+    const energyHistory = sanitizeEnergyHistory(state.energyHistory);
+    energyHistory.forEach((entry) => {
+      if (!dateSet.has(entry.date)) return;
+      energyMap.set(entry.date, entry);
+    });
+
+    let totalCompletions = 0;
+    let activeDays = 0;
+    const beforeValues = [];
+    const afterValues = [];
+    const pairedDeltaValues = [];
+
+    dates.forEach((date) => {
+      const completionEntry = completionMap.get(date);
+      const completionCount = normalizeCount(completionEntry?.completions || 0);
+      totalCompletions += completionCount;
+      if (completionCount > 0) {
+        activeDays += 1;
+      }
+
+      const energyEntry = energyMap.get(date) || completionEntry || {};
+      const before = toFiniteNumber(energyEntry.before);
+      const after = toFiniteNumber(energyEntry.after);
+
+      if (typeof before === 'number') {
+        beforeValues.push(before);
+      }
+
+      if (typeof after === 'number') {
+        afterValues.push(after);
+      }
+
+      if (typeof before === 'number' && typeof after === 'number') {
+        pairedDeltaValues.push(after - before);
+      }
+    });
+
+    const enoughEnergyData = beforeValues.length >= 2 && afterValues.length >= 2;
+    const avgBefore = enoughEnergyData ? average(beforeValues) : null;
+    const avgAfter = enoughEnergyData ? average(afterValues) : null;
+    const avgDelta = pairedDeltaValues.length >= 2 ? average(pairedDeltaValues) : null;
+
+    const isEmpty = totalCompletions === 0 && beforeValues.length === 0 && afterValues.length === 0;
+
+    const rangeLabel = formatDateRangeLabel(dates[0], dates[dates.length - 1]);
+    const insight = buildWeeklyInsight({
+      isEmpty,
+      totalCompletions,
+      activeDays,
+      avgDelta,
+      pairedSamples: pairedDeltaValues.length,
+      enoughEnergyData,
+    });
+
+    return {
+      totalCompletions,
+      activeDays,
+      avgBefore,
+      avgAfter,
+      avgDelta,
+      enoughEnergyData,
+      isEmpty,
+      rangeLabel,
+      insight,
+    };
+  }
+
+  function buildWeeklyInsight(summary) {
+    if (summary.isEmpty) {
+      return 'Пока данных мало. Сделай первый шаг сегодня — блок «Моя неделя» начнёт собирать видимую пользу.';
+    }
+
+    if (summary.totalCompletions >= 7 && summary.activeDays >= 4) {
+      return 'Сильный ритм: несколько коротких шагов уже распределены по неделе без перегруза.';
+    }
+
+    if (typeof summary.avgDelta === 'number' && summary.avgDelta > 0.2) {
+      return `Есть мягкий прирост энергии: в среднем +${summary.avgDelta.toFixed(1)} после микрошагов.`;
+    }
+
+    if (summary.activeDays >= 3) {
+      return 'Регулярность формируется: 3+ активных дня в неделю уже дают устойчивый эффект.';
+    }
+
+    if (!summary.enoughEnergyData) {
+      return 'Хорошее начало. Добавь пару отметок «до/после», чтобы видеть среднюю динамику энергии.';
+    }
+
+    return 'Есть первые сигналы пользы. Продолжай в мягком темпе — один шаг за раз.';
+  }
+
+  function getRecentDateRange(lastDate, days) {
+    const safeDays = Math.max(1, normalizeCount(days));
+    const range = [];
+
+    for (let i = safeDays - 1; i >= 0; i -= 1) {
+      range.push(shiftDateISO(lastDate, -i));
+    }
+
+    return range;
+  }
+
+  function formatDateRangeLabel(fromISO, toISO) {
+    if (!fromISO || !toISO) {
+      return `Последние ${WEEKLY_WINDOW_DAYS} дней`;
+    }
+
+    const formatter = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short' });
+    const from = formatter.format(new Date(`${fromISO}T00:00:00`)).replace('.', '');
+    const to = formatter.format(new Date(`${toISO}T00:00:00`)).replace('.', '');
+
+    return `${from} — ${to}`;
+  }
+
+  function formatStepWord(count) {
+    const value = Math.abs(normalizeCount(count));
+    const mod10 = value % 10;
+    const mod100 = value % 100;
+
+    if (mod10 === 1 && mod100 !== 11) return 'шаг';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'шага';
+    return 'шагов';
+  }
+
+  function sanitizeEnergyHistory(history) {
+    if (!Array.isArray(history)) return [];
+
+    return history
+      .map((item) => ({
+        date: item?.date,
+        actionId: item?.actionId || null,
+        before: toFiniteNumber(item?.before),
+        after: toFiniteNumber(item?.after),
+        delta: toFiniteNumber(item?.delta),
+        updatedAt: Number(item?.updatedAt) || 0,
+      }))
+      .filter((item) => isISODate(item.date))
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  function toFiniteNumber(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function average(list) {
+    if (!Array.isArray(list) || !list.length) return null;
+    const sum = list.reduce((acc, value) => acc + value, 0);
+    return sum / list.length;
+  }
+
+  function isISODate(value) {
+    return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+  }
+
   function upsertEnergyHistory() {
     const before = state.todayEnergyBefore;
     const after = state.todayEnergyAfter;
@@ -1238,6 +1799,14 @@
     next.todayActionMode = normalizeActionMode(next.todayActionMode);
     next.todayPlanAnchor = normalizePlanAnchor(next.todayPlanAnchor);
 
+    next.onboardingSeen = Boolean(next.onboardingSeen);
+    next.onboardingSeenAt = Number(next.onboardingSeenAt) || null;
+    next.onboardingDismissedAt = Number(next.onboardingDismissedAt) || null;
+    next.onboardingLastOpenedAt = Number(next.onboardingLastOpenedAt) || null;
+
+    next.completionHistory = sanitizeCompletionHistory(next.completionHistory).slice(-60);
+    next.energyHistory = sanitizeEnergyHistory(next.energyHistory).slice(-30);
+
     next.todayCompletions = normalizeCount(next.todayCompletions);
 
     if (next.lastCompletionDate === currentDate && next.todayCompletions === 0) {
@@ -1246,12 +1815,40 @@
 
     next.todayCompleted = next.todayCompletions > 0;
 
+    if (!next.todayCompleted || next.lastCompletionRecap?.date !== currentDate) {
+      next.lastCompletionRecap = null;
+    }
+
+    if (next.todayCompleted) {
+      const completionIndex = next.completionHistory.findIndex((item) => item.date === currentDate);
+      if (completionIndex === -1) {
+        next.completionHistory.push({
+          date: currentDate,
+          completions: next.todayCompletions,
+          before: typeof next.todayEnergyBefore === 'number' ? next.todayEnergyBefore : null,
+          after: typeof next.todayEnergyAfter === 'number' ? next.todayEnergyAfter : null,
+          delta:
+            typeof next.todayEnergyBefore === 'number' && typeof next.todayEnergyAfter === 'number'
+              ? next.todayEnergyAfter - next.todayEnergyBefore
+              : null,
+          updatedAt: Date.now(),
+        });
+      } else {
+        next.completionHistory[completionIndex].completions = Math.max(
+          normalizeCount(next.completionHistory[completionIndex].completions),
+          next.todayCompletions
+        );
+      }
+    }
+
     if (next.lastCompletionDate) {
       const completionGap = diffDays(next.lastCompletionDate, currentDate);
       if (completionGap > 1) {
         next.streak = 0;
       }
     }
+
+    next.completionHistory = sanitizeCompletionHistory(next.completionHistory).slice(-60);
 
     next.lastVisitDate = currentDate;
     next.progress = computeProgress(next);
@@ -1282,6 +1879,26 @@
         evidence: item.evidence || 'Medium',
       }))
       .filter((item) => item.id && item.title);
+  }
+
+  function sanitizeCompletionHistory(history) {
+    if (!Array.isArray(history)) return [];
+
+    return history
+      .map((item) => {
+        const before = toFiniteNumber(item?.before);
+        const after = toFiniteNumber(item?.after);
+        return {
+          date: item?.date,
+          completions: normalizeCount(item?.completions),
+          before,
+          after,
+          delta: typeof before === 'number' && typeof after === 'number' ? after - before : null,
+          updatedAt: Number(item?.updatedAt) || 0,
+        };
+      })
+      .filter((item) => isISODate(item.date))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }
 
   function normalizeRewards(raw) {

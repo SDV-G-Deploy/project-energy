@@ -96,12 +96,46 @@ h3 {
   font-size: 0.95rem;
 }
 
+.hero-help-btn {
+  margin-top: 6px;
+}
+
 .section-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.onboarding {
+  border-color: #cfe0ff;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.onboarding-head {
+  margin-bottom: 8px;
+}
+
+.onboarding-lead {
+  margin: 0;
+  color: var(--muted);
+}
+
+.onboarding-steps {
+  margin: 12px 0 0;
+  padding-left: 1.1rem;
+  color: var(--text);
+}
+
+.onboarding-steps li + li {
+  margin-top: 8px;
+}
+
+.onboarding-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
 }
 
 .mode-selector {
@@ -184,7 +218,7 @@ h3 {
 
 .btn-text {
   width: auto;
-  min-height: 42px;
+  min-height: 44px;
   padding: 8px 10px;
   color: var(--accent);
   background: transparent;
@@ -381,6 +415,34 @@ input:focus-visible {
   font-size: 0.92rem;
 }
 
+.recap {
+  border-color: #cde3d9;
+  background: #f8fcfa;
+}
+
+.recap-head {
+  margin-bottom: 8px;
+}
+
+.recap-chip {
+  color: #0f766e;
+  background: #e7f7f3;
+  border-color: #c7ebe1;
+}
+
+.recap-row {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.recap-row strong {
+  color: var(--text);
+}
+
+#recap-next-btn {
+  margin-top: 12px;
+}
+
 .energy-hint {
   margin: 6px 0 0;
   color: var(--muted);
@@ -425,9 +487,42 @@ input:focus-visible {
 
 .tomorrow p,
 .metrics p,
-.evidence p {
+.evidence p,
+.weekly p {
   margin: 10px 0 0;
   color: var(--muted);
+}
+
+.weekly {
+  border-color: #d5e1f8;
+}
+
+.weekly-head {
+  margin-bottom: 8px;
+}
+
+.weekly .weekly-range {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.weekly-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.weekly-insight {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+}
+
+.weekly-insight.is-empty {
+  font-style: italic;
 }
 
 .tomorrow .btn {
@@ -516,6 +611,10 @@ input:focus-visible {
   }
 
   .action-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .onboarding-actions {
     grid-template-columns: 1fr 1fr;
   }
 

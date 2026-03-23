@@ -21,8 +21,34 @@
         </p>
 
         <button id="one-click-cta" class="btn btn-primary" type="button">⚡ Польза в 1 клик</button>
+        <button
+          id="how-it-works-btn"
+          class="btn btn-text hero-help-btn"
+          type="button"
+          aria-expanded="false"
+          aria-controls="onboarding-card"
+        >
+          Как это работает?
+        </button>
         <p class="micro-hint">Первый видимый результат обычно за 5–10 секунд.</p>
       </header>
+
+      <section class="onboarding card" id="onboarding-card" aria-labelledby="onboarding-title" hidden>
+        <div class="section-head onboarding-head">
+          <h2 id="onboarding-title">Быстрый старт за 30 секунд</h2>
+          <p class="status-chip">Без перегруза</p>
+        </div>
+        <p class="onboarding-lead">PROJECT ENERGY даёт полезный микро-результат, когда тяжело начать.</p>
+        <ol class="onboarding-steps" aria-label="Как работает быстрый старт">
+          <li><strong>Что это:</strong> короткие шаги 30–90 секунд для мягкого входа в день.</li>
+          <li><strong>One-click:</strong> нажимаешь «Польза в 1 клик» — сразу получаешь первый прогресс.</li>
+          <li><strong>За 60 сек:</strong> делаешь один шаг и видишь свой мини-результат в трекере.</li>
+        </ol>
+        <div class="onboarding-actions">
+          <button class="btn btn-primary" id="onboarding-start-btn" type="button">Начать сейчас</button>
+          <button class="btn btn-secondary" id="onboarding-skip-btn" type="button">Пропустить</button>
+        </div>
+      </section>
 
       <section class="dashboard card" aria-labelledby="dashboard-title">
         <div class="section-head">
@@ -111,6 +137,17 @@
         </article>
       </section>
 
+      <section class="recap card" id="completion-recap" aria-labelledby="recap-title" hidden>
+        <div class="section-head recap-head">
+          <h2 id="recap-title">Короткий итог после шага</h2>
+          <p class="status-chip recap-chip" id="recap-chip">1 шаг сегодня</p>
+        </div>
+        <p class="recap-row" id="recap-done">Сделано: —</p>
+        <p class="recap-row" id="recap-energy">Энергия: —</p>
+        <p class="recap-row" id="recap-next">Следующий мягкий шаг: —</p>
+        <button class="btn btn-secondary" id="recap-next-btn" type="button">Сделать ещё один</button>
+      </section>
+
       <section class="energy card" aria-labelledby="energy-title">
         <h2 id="energy-title">Супер-простой трекер энергии</h2>
         <p class="energy-hint">Шкала 1–5: 1 = разряжен(а), 5 = ресурсно.</p>
@@ -155,6 +192,36 @@
         </button>
         <p id="return-intent-status" aria-live="polite">
           Отметь намерение, чтобы снять лишнее решение на завтра.
+        </p>
+      </section>
+
+      <section class="weekly card" id="weekly-card" aria-labelledby="weekly-title">
+        <div class="section-head weekly-head">
+          <h2 id="weekly-title">Моя неделя</h2>
+          <p class="weekly-range" id="weekly-range">Последние 7 дней</p>
+        </div>
+
+        <div class="weekly-grid" aria-label="Польза за неделю">
+          <article class="stat">
+            <p>Выполнено за 7 дней</p>
+            <strong id="weekly-completions">0</strong>
+          </article>
+          <article class="stat">
+            <p>Активных дней</p>
+            <strong id="weekly-active-days">0</strong>
+          </article>
+          <article class="stat">
+            <p>Средняя энергия «до»</p>
+            <strong id="weekly-before">—</strong>
+          </article>
+          <article class="stat">
+            <p>Средняя энергия «после»</p>
+            <strong id="weekly-after">—</strong>
+          </article>
+        </div>
+
+        <p class="weekly-insight" id="weekly-insight" aria-live="polite">
+          Добавь первый шаг сегодня — и здесь появится недельная динамика.
         </p>
       </section>
 
