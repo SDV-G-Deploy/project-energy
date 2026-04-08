@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PROJECT ENERGY — 14-дневный протокол</title>
+    <meta
+      name="description"
+      content="14-дневный протокол энергопрактик: мягкий ритм, ежедневная структура и локальный чек-лист без внешних сервисов."
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .protocol-intro {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .protocol-rules {
+        margin: 10px 0 0;
+        padding-left: 1.1rem;
+      }
+
+      .protocol-rules li + li {
+        margin-top: 6px;
+      }
+
+      .protocol-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .protocol-progress {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .day-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .day-item {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface-soft);
+        overflow: hidden;
+      }
+
+      .day-item summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 12px 14px;
+        font-weight: 600;
+      }
+
+      .day-item summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .day-item summary::after {
+        content: '▾';
+        float: right;
+        color: var(--muted);
+      }
+
+      .day-item[open] summary::after {
+        content: '▴';
+      }
+
+      .day-content {
+        padding: 0 14px 14px;
+      }
+
+      .day-focus {
+        margin: 0 0 10px;
+        color: var(--muted);
+      }
+
+      .day-checklist {
+        display: grid;
+        gap: 8px;
+      }
+
+      .day-check {
+        display: grid;
+        grid-template-columns: 20px 1fr;
+        gap: 10px;
+        align-items: start;
+      }
+
+      .day-check input {
+        margin-top: 2px;
+      }
+
+      .after-list {
+        margin: 10px 0 0;
+        padding-left: 1.1rem;
+      }
+
+      .after-list li + li {
+        margin-top: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero card">
+        <p class="eyebrow">PROJECT ENERGY · протоколы</p>
+        <h1>14-дневный протокол энергопрактик</h1>
+        <p class="subtitle">
+          Мягкий маршрут на 2 недели: без рывков, с понятным ритмом и локальным
+          чек-листом прямо в браузере.
+        </p>
+        <div class="protocol-actions">
+          <a class="btn btn-secondary" href="index.html">← Вернуться на главную</a>
+        </div>
+      </header>
+
+      <section class="card" aria-labelledby="protocol-start-title">
+        <div class="section-head">
+          <h2 id="protocol-start-title">Как проходить протокол</h2>
+          <p class="status-chip">14 дней · 1 день = 10–20 мин</p>
+        </div>
+        <p class="protocol-intro">
+          Цель — собрать устойчивую базу энергии через сон, свет, движение,
+          питание и восстановление. Лучше маленький шаг ежедневно, чем
+          «идеальный день» раз в неделю.
+        </p>
+        <ul class="protocol-rules">
+          <li>Делай минимум 3 пункта из дня, если нет ресурса на всё.</li>
+          <li>Отмечай состояние по шкале энергии 1–5 утром и вечером.</li>
+          <li>Если есть дискомфорт — снижай интенсивность, не дави на себя.</li>
+          <li>Опора протокола: регулярность, а не героизм.</li>
+        </ul>
+      </section>
+
+      <section class="card" aria-labelledby="days-title">
+        <div class="section-head">
+          <h2 id="days-title">План на 14 дней</h2>
+          <p class="protocol-progress" id="protocol-progress">Выполнено пунктов: 0 / 56</p>
+        </div>
+
+        <div class="protocol-actions">
+          <button class="btn btn-text" id="open-all-btn" type="button">Раскрыть все дни</button>
+          <button class="btn btn-text" id="close-all-btn" type="button">Свернуть все дни</button>
+          <button class="btn btn-secondary" id="reset-progress-btn" type="button">Сбросить галочки</button>
+        </div>
+
+        <div class="day-list" id="day-list">
+          <details class="day-item">
+            <summary>День 1 — Мягкий запуск</summary>
+            <div class="day-content">
+              <p class="day-focus">Фокус: старт без перегруза.</p>
+              <div class="day-checklist">
+                <label class="day-check"><input type="checkbox" data-day="1" data-item="1" /> <span>Стакан воды после подъёма.</span></label>
+                <label class="day-check"><input type="checkbox" data-day="1" data-item="2" /> <span>5 минут дневного света утром.</span></label>
+                <label class="day-check"><input type="checkbox" data-day="1" data-item="3" /> <span>60 секунд спокойного дыхания (длинный выдох).</span></label>
+                <label class="day-check"><input type="checkbox" data-day="1" data-item="4" /> <span>Оценка энергии утром/вечером (1–5).</span></label>
+              </div>
+            </div>
+          </details>
+
+          <details class="day-item"><summary>День 2 — Ритм сна</summary><div class="day-content"><p class="day-focus">Фокус: стабилизировать засыпание.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="2" data-item="1" /> <span>Выбрать окно сна и подъёма на ближайшие 3 дня.</span></label><label class="day-check"><input type="checkbox" data-day="2" data-item="2" /> <span>Кофеин-стоп за 8 часов до сна.</span></label><label class="day-check"><input type="checkbox" data-day="2" data-item="3" /> <span>За 30 минут до сна приглушить яркий экран.</span></label><label class="day-check"><input type="checkbox" data-day="2" data-item="4" /> <span>Короткая запись: что мешает заснуть.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 3 — Анти-туман среды</summary><div class="day-content"><p class="day-focus">Фокус: меньше визуального и шумового перегруза.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="3" data-item="1" /> <span>Очистить рабочую поверхность от 3 лишних вещей.</span></label><label class="day-check"><input type="checkbox" data-day="3" data-item="2" /> <span>Сделать 1 фокус-блок 25–45 минут без уведомлений.</span></label><label class="day-check"><input type="checkbox" data-day="3" data-item="3" /> <span>Правило 20-20-20 для глаз минимум 2 раза.</span></label><label class="day-check"><input type="checkbox" data-day="3" data-item="4" /> <span>Отметить, где обычно теряется энергия днём.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 4 — Белковая опора</summary><div class="day-content"><p class="day-focus">Фокус: убрать резкие просадки после еды.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="4" data-item="1" /> <span>Добавить белок в первый приём пищи.</span></label><label class="day-check"><input type="checkbox" data-day="4" data-item="2" /> <span>Собрать тарелку: белок + клетчатка + вода.</span></label><label class="day-check"><input type="checkbox" data-day="4" data-item="3" /> <span>Прогулка 5–10 минут после одного приёма пищи.</span></label><label class="day-check"><input type="checkbox" data-day="4" data-item="4" /> <span>Оценка энергии через 60–90 минут после еды.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 5 — Дыхание и сброс напряжения</summary><div class="day-content"><p class="day-focus">Фокус: быстро снижать стресс-пик.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="5" data-item="1" /> <span>Сделать 5 циклов «физиологического вздоха».</span></label><label class="day-check"><input type="checkbox" data-day="5" data-item="2" /> <span>60–90 секунд расслабления плеч/челюсти.</span></label><label class="day-check"><input type="checkbox" data-day="5" data-item="3" /> <span>Короткая пауза после сложной задачи.</span></label><label class="day-check"><input type="checkbox" data-day="5" data-item="4" /> <span>Записать, что сработало лучше всего.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 6 — Микродвижение</summary><div class="day-content"><p class="day-focus">Фокус: вернуть тонус через короткие активности.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="6" data-item="1" /> <span>2 короткие прогулки по 5–10 минут.</span></label><label class="day-check"><input type="checkbox" data-day="6" data-item="2" /> <span>1 лестничный мини-буст или 60 сек быстрой ходьбы.</span></label><label class="day-check"><input type="checkbox" data-day="6" data-item="3" /> <span>Встать/размяться каждые 60–90 минут.</span></label><label class="day-check"><input type="checkbox" data-day="6" data-item="4" /> <span>Сравнить энергию до и после движения.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 7 — Ревизия первой недели</summary><div class="day-content"><p class="day-focus">Фокус: закрепить рабочие элементы.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="7" data-item="1" /> <span>Подвести итог 6 дней: что даёт максимум эффекта.</span></label><label class="day-check"><input type="checkbox" data-day="7" data-item="2" /> <span>Оставить 3 практики-ядра на вторую неделю.</span></label><label class="day-check"><input type="checkbox" data-day="7" data-item="3" /> <span>Снизить/убрать одну практику, которая не заходит.</span></label><label class="day-check"><input type="checkbox" data-day="7" data-item="4" /> <span>Запланировать время на День 8 заранее.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 8 — Перезапуск с базы</summary><div class="day-content"><p class="day-focus">Фокус: стабильный второй цикл.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="8" data-item="1" /> <span>Утренний свет + вода в первые 30 минут.</span></label><label class="day-check"><input type="checkbox" data-day="8" data-item="2" /> <span>Один фокус-блок без переключений.</span></label><label class="day-check"><input type="checkbox" data-day="8" data-item="3" /> <span>Короткая прогулка днём.</span></label><label class="day-check"><input type="checkbox" data-day="8" data-item="4" /> <span>Проверить, не сдвигается ли время сна.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 9 — Питание без качелей</summary><div class="day-content"><p class="day-focus">Фокус: ровнее энергия днём.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="9" data-item="1" /> <span>Добавить цельные продукты в 2 приёма пищи.</span></label><label class="day-check"><input type="checkbox" data-day="9" data-item="2" /> <span>Убрать «случайный перекус» и заменить на плановый.</span></label><label class="day-check"><input type="checkbox" data-day="9" data-item="3" /> <span>Контроль воды в первой половине дня.</span></label><label class="day-check"><input type="checkbox" data-day="9" data-item="4" /> <span>Отметить, когда появляется сонливость после еды.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 10 — Среда и внимание</summary><div class="day-content"><p class="day-focus">Фокус: меньше утечек внимания.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="10" data-item="1" /> <span>Отключить неважные уведомления на 1 день.</span></label><label class="day-check"><input type="checkbox" data-day="10" data-item="2" /> <span>Сделать «зелёную паузу» 1–2 раза.</span></label><label class="day-check"><input type="checkbox" data-day="10" data-item="3" /> <span>Ввести правило: 1 задача = 1 экран.</span></label><label class="day-check"><input type="checkbox" data-day="10" data-item="4" /> <span>Коротко зафиксировать лучший промежуток концентрации.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 11 — Восстановление после нагрузки</summary><div class="day-content"><p class="day-focus">Фокус: быстро возвращаться в ресурс.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="11" data-item="1" /> <span>90 секунд NSDR-скан или телесная пауза.</span></label><label class="day-check"><input type="checkbox" data-day="11" data-item="2" /> <span>10 минут спокойной ходьбы вечером.</span></label><label class="day-check"><input type="checkbox" data-day="11" data-item="3" /> <span>Лёгкое снижение яркости света за час до сна.</span></label><label class="day-check"><input type="checkbox" data-day="11" data-item="4" /> <span>Оценить уровень напряжения до/после паузы.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 12 — Ритм «если-то»</summary><div class="day-content"><p class="day-focus">Фокус: автоматизировать полезные действия.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="12" data-item="1" /> <span>Записать 2 формулы «Если X, то Y».</span></label><label class="day-check"><input type="checkbox" data-day="12" data-item="2" /> <span>Привязать одну практику к конкретному времени дня.</span></label><label class="day-check"><input type="checkbox" data-day="12" data-item="3" /> <span>Подготовить среду с вечера (вода/одежда/рабочее место).</span></label><label class="day-check"><input type="checkbox" data-day="12" data-item="4" /> <span>Проверить выполнение без мотивационного «надрыва».</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 13 — Консолидация</summary><div class="day-content"><p class="day-focus">Фокус: оставить только реально рабочее.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="13" data-item="1" /> <span>Пересобрать личный мини-набор из 3–5 практик.</span></label><label class="day-check"><input type="checkbox" data-day="13" data-item="2" /> <span>Уточнить время сна/подъёма на следующую неделю.</span></label><label class="day-check"><input type="checkbox" data-day="13" data-item="3" /> <span>Запланировать 2 коротких окна движения в календаре.</span></label><label class="day-check"><input type="checkbox" data-day="13" data-item="4" /> <span>Отметить общий тренд энергии за 2 недели.</span></label></div></div></details>
+
+          <details class="day-item"><summary>День 14 — Закрепление и переход</summary><div class="day-content"><p class="day-focus">Фокус: перевести протокол в устойчивый режим.</p><div class="day-checklist"><label class="day-check"><input type="checkbox" data-day="14" data-item="1" /> <span>Подвести итог: что реально улучшило состояние.</span></label><label class="day-check"><input type="checkbox" data-day="14" data-item="2" /> <span>Выбрать «минимум на плохой день» (1–2 практики).</span></label><label class="day-check"><input type="checkbox" data-day="14" data-item="3" /> <span>Собрать план на 7 дней после протокола.</span></label><label class="day-check"><input type="checkbox" data-day="14" data-item="4" /> <span>Наградить себя за завершение цикла.</span></label></div></div></details>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="after-title">
+        <h2 id="after-title">Что оставить после 14 дней</h2>
+        <ul class="after-list">
+          <li><strong>База каждый день:</strong> вода + утренний свет + 1 микродвижение.</li>
+          <li><strong>Сон как приоритет:</strong> стабильное окно сна и кофеин-стоп вечером.</li>
+          <li><strong>Анти-перегруз:</strong> 1–2 фокус-блока без отвлечений и короткие паузы.</li>
+          <li><strong>Минимум на тяжёлый день:</strong> только 1 шаг, но без обнуления ритма.</li>
+          <li><strong>Еженедельный обзор:</strong> 10 минут на корректировку практик под реальность.</li>
+        </ul>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        const STORAGE_KEY = 'project-energy-protocol-14d-v1';
+        const checkboxes = Array.from(document.querySelectorAll('.day-check input[type="checkbox"]'));
+        const detailsList = Array.from(document.querySelectorAll('.day-item'));
+        const progressNode = document.getElementById('protocol-progress');
+        const resetBtn = document.getElementById('reset-progress-btn');
+        const openAllBtn = document.getElementById('open-all-btn');
+        const closeAllBtn = document.getElementById('close-all-btn');
+
+        const total = checkboxes.length;
+
+        function getId(input) {
+          return `d${input.dataset.day}-i${input.dataset.item}`;
+        }
+
+        function loadState() {
+          try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+          } catch {
+            return {};
+          }
+        }
+
+        function saveState(state) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }
+
+        function updateProgress() {
+          const done = checkboxes.filter((item) => item.checked).length;
+          progressNode.textContent = `Выполнено пунктов: ${done} / ${total}`;
+        }
+
+        function applyState() {
+          const state = loadState();
+          checkboxes.forEach((input) => {
+            input.checked = Boolean(state[getId(input)]);
+          });
+          updateProgress();
+        }
+
+        checkboxes.forEach((input) => {
+          input.addEventListener('change', () => {
+            const state = loadState();
+            state[getId(input)] = input.checked;
+            saveState(state);
+            updateProgress();
+          });
+        });
+
+        resetBtn.addEventListener('click', () => {
+          localStorage.removeItem(STORAGE_KEY);
+          checkboxes.forEach((input) => {
+            input.checked = false;
+          });
+          updateProgress();
+        });
+
+        openAllBtn.addEventListener('click', () => {
+          detailsList.forEach((item) => {
+            item.open = true;
+          });
+        });
+
+        closeAllBtn.addEventListener('click', () => {
+          detailsList.forEach((item) => {
+            item.open = false;
+          });
+        });
+
+        applyState();
+      })();
+    </script>
+  </body>
+</html>

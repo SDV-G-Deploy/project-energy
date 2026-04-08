@@ -122,6 +122,11 @@ Micro-product версия лендинга: **«польза в 1 клик»** 
 
 Если данных пока мало — показывается мягкий empty state (без «ошибок» и без давления).
 
+## Страницы GitHub Pages
+
+- Главная: `https://sdv-g-deploy.github.io/project-energy/`
+- 14-дневный протокол: `https://sdv-g-deploy.github.io/project-energy/protocol-14-days.html`
+
 ## Локальный запуск
 
 > Рекомендуется запускать через локальный сервер (для загрузки JSON/MD контента).
@@ -140,6 +145,7 @@ project-energy/
 ├── index.html
 ├── styles.css
 ├── app.js
+├── protocol-14-days.html
 ├── content/
 │   ├── micro-actions.json
 │   ├── rewards-copy.json
