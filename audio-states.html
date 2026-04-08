@@ -141,6 +141,22 @@
         font-size: 0.92rem;
       }
 
+      .runtime-hint {
+        margin: 8px 0 0;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #f3d7ad;
+        background: #fff8ee;
+        color: #6e4a17;
+        font-size: 0.9rem;
+      }
+
+      .runtime-hint.ok {
+        border-color: #bde4c7;
+        background: #edf9f0;
+        color: #1f6a34;
+      }
+
       @media (min-width: 720px) {
         .mode-grid {
           grid-template-columns: 1fr 1fr;
@@ -242,6 +258,7 @@
           </div>
 
           <p class="muted-note" id="last-used-note">Последний выбор пока не сохранён.</p>
+          <p class="runtime-hint" id="runtime-hint" hidden></p>
         </div>
       </section>
 
@@ -322,12 +339,17 @@
         const feedbackStatus = document.getElementById('feedback-status');
         const reflectionChip = document.getElementById('reflection-chip');
         const lastUsedNote = document.getElementById('last-used-note');
+        const runtimeHint = document.getElementById('runtime-hint');
+
+        const isIOSWebKit = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isTelegramWebView = /Telegram/i.test(navigator.userAgent);
 
         const modeConfigs = {
-          calm: { baseFreq: 160, lfoHz: 0.08, noiseGain: 0.035, toneGain: 0.04, lowpass: 850 },
-          focus: { baseFreq: 220, lfoHz: 0.18, noiseGain: 0.03, toneGain: 0.03, lowpass: 1500 },
-          flow: { baseFreq: 180, lfoHz: 0.22, noiseGain: 0.04, toneGain: 0.035, lowpass: 1200 },
-          sleep: { baseFreq: 110, lfoHz: 0.05, noiseGain: 0.045, toneGain: 0.025, lowpass: 600 }
+          calm: { baseFreq: 160, lfoHz: 0.08, noiseGain: 0.03, toneGain: 0.048, lowpass: 1200 },
+          focus: { baseFreq: 240, lfoHz: 0.18, noiseGain: 0.026, toneGain: 0.042, lowpass: 1800 },
+          flow: { baseFreq: 210, lfoHz: 0.22, noiseGain: 0.03, toneGain: 0.045, lowpass: 1700 },
+          sleep: { baseFreq: 170, lfoHz: 0.05, noiseGain: 0.034, toneGain: 0.033, lowpass: 1000 }
         };
 
         let selectedMode = 'calm';
@@ -339,15 +361,21 @@
         let noiseSource = null;
         let toneA = null;
         let toneB = null;
+        let tonePresence = null;
         let lfo = null;
         let lfoGain = null;
         let noiseFilter = null;
+        let outputHighpass = null;
+        let outputCompressor = null;
 
         let sessionState = 'idle';
         let totalSec = selectedDurationMin * 60;
         let remainingSec = totalSec;
         let timerId = null;
         let startedAt = 0;
+        let modeSwitchToken = 0;
+        let hasUnlockedAudio = false;
+        let stateWatchdogId = null;
 
         function readStorage() {
           try {
@@ -377,10 +405,62 @@
           return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
         }
 
+        function showRuntimeHint(message, level = 'warn') {
+          if (!runtimeHint) return;
+          runtimeHint.hidden = false;
+          runtimeHint.textContent = message;
+          runtimeHint.classList.toggle('ok', level === 'ok');
+        }
+
+        function hideRuntimeHint() {
+          if (!runtimeHint) return;
+          runtimeHint.hidden = true;
+          runtimeHint.textContent = '';
+          runtimeHint.classList.remove('ok');
+        }
+
+        async function unlockAudioIfNeeded() {
+          const context = ensureAudio();
+
+          if (context.state !== 'running') {
+            try {
+              await context.resume();
+            } catch {}
+          }
+
+          const click = context.createBuffer(1, Math.max(1, Math.floor(context.sampleRate * 0.02)), context.sampleRate);
+          const data = click.getChannelData(0);
+          for (let i = 0; i < data.length; i += 1) {
+            data[i] = Math.sin((i / data.length) * Math.PI) * 0.0006;
+          }
+
+          const source = context.createBufferSource();
+          source.buffer = click;
+          const gain = context.createGain();
+          gain.gain.value = 1;
+          source.connect(gain);
+          gain.connect(context.destination);
+          source.start();
+          source.stop(context.currentTime + 0.03);
+
+          hasUnlockedAudio = true;
+          if (isIOSWebKit) {
+            showRuntimeHint('Аудио активировано. Если не слышно, проверь громкость и выключи беззвучный режим iPhone.', 'ok');
+          } else {
+            hideRuntimeHint();
+          }
+        }
+
         function updateTimerUi() {
           const elapsed = totalSec - remainingSec;
           const progress = totalSec ? Math.min(100, (elapsed / totalSec) * 100) : 0;
           timerFill.style.width = `${progress}%`;
+
+          if (sessionState === 'idle') {
+            timerCopy.textContent = `Режим ${selectedMode.toUpperCase()} · длительность ${selectedDurationMin} мин`;
+            return;
+          }
+
           timerCopy.textContent = `Режим ${selectedMode.toUpperCase()} · осталось ${formatTime(remainingSec)}`;
         }
 
@@ -392,7 +472,27 @@
             audioCtx = new AudioCtx();
             masterGain = audioCtx.createGain();
             masterGain.gain.value = 0.0001;
-            masterGain.connect(audioCtx.destination);
+
+            outputHighpass = audioCtx.createBiquadFilter();
+            outputHighpass.type = 'highpass';
+            outputHighpass.frequency.value = isIOSWebKit ? 110 : 90;
+
+            outputCompressor = audioCtx.createDynamicsCompressor();
+            outputCompressor.threshold.value = -24;
+            outputCompressor.knee.value = 18;
+            outputCompressor.ratio.value = 2.2;
+            outputCompressor.attack.value = 0.02;
+            outputCompressor.release.value = 0.18;
+
+            masterGain.connect(outputHighpass);
+            outputHighpass.connect(outputCompressor);
+            outputCompressor.connect(audioCtx.destination);
+
+            audioCtx.addEventListener('statechange', () => {
+              if (sessionState === 'running' && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) {
+                showRuntimeHint('iPhone/WebView приостановил аудио. Нажми «Продолжить» или «Запуск», чтобы вернуть звук.');
+              }
+            });
           }
           return audioCtx;
         }
@@ -411,12 +511,12 @@
         }
 
         function stopAudioGraph() {
-          [noiseSource, toneA, toneB, lfo].forEach((node) => {
+          [noiseSource, toneA, toneB, tonePresence, lfo].forEach((node) => {
             try {
               if (node) node.stop();
             } catch {}
           });
-          [noiseSource, toneA, toneB, lfo, lfoGain, noiseFilter].forEach((node) => {
+          [noiseSource, toneA, toneB, tonePresence, lfo, lfoGain, noiseFilter].forEach((node) => {
             try {
               if (node) node.disconnect();
             } catch {}
@@ -424,6 +524,7 @@
           noiseSource = null;
           toneA = null;
           toneB = null;
+          tonePresence = null;
           lfo = null;
           lfoGain = null;
           noiseFilter = null;
@@ -460,6 +561,12 @@
           const toneGainB = context.createGain();
           toneGainB.gain.value = cfg.toneGain * 0.6;
 
+          tonePresence = context.createOscillator();
+          tonePresence.type = 'triangle';
+          tonePresence.frequency.value = Math.min(cfg.baseFreq * 2.4, 680);
+          const tonePresenceGain = context.createGain();
+          tonePresenceGain.gain.value = cfg.toneGain * 0.14;
+
           lfo = context.createOscillator();
           lfo.type = 'sine';
           lfo.frequency.value = cfg.lfoHz;
@@ -479,9 +586,13 @@
           toneB.connect(toneGainB);
           toneGainB.connect(masterGain);
 
+          tonePresence.connect(tonePresenceGain);
+          tonePresenceGain.connect(masterGain);
+
           noiseSource.start();
           toneA.start();
           toneB.start();
+          tonePresence.start();
           lfo.start();
         }
 
@@ -491,6 +602,40 @@
           masterGain.gain.cancelScheduledValues(now);
           masterGain.gain.setValueAtTime(masterGain.gain.value, now);
           masterGain.gain.linearRampToValueAtTime(value, now + sec);
+        }
+
+        function wait(ms) {
+          return new Promise((resolve) => {
+            window.setTimeout(resolve, ms);
+          });
+        }
+
+        async function switchModeLive(mode) {
+          if (!audioCtx || !masterGain) return;
+
+          if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
+            try {
+              await audioCtx.resume();
+            } catch {}
+          }
+
+          modeSwitchToken += 1;
+          const token = modeSwitchToken;
+
+          const isRunning = sessionState === 'running';
+          const targetGain = isRunning ? (isIOSWebKit ? 0.16 : 0.12) : 0.0001;
+
+          fadeTo(0.0001, 0.25);
+          await wait(280);
+
+          if (token !== modeSwitchToken) return;
+          buildAudioGraph(mode);
+
+          if (isRunning) {
+            fadeTo(targetGain, 0.45);
+          } else {
+            masterGain.gain.setValueAtTime(targetGain, audioCtx.currentTime);
+          }
         }
 
         function stopTimer() {
@@ -524,7 +669,9 @@
         async function startSession() {
           try {
             const context = ensureAudio();
-            if (context.state === 'suspended') {
+            await unlockAudioIfNeeded();
+
+            if (context.state === 'suspended' || context.state === 'interrupted') {
               await context.resume();
             }
             if (sessionState === 'idle') {
@@ -534,8 +681,18 @@
             }
 
             sessionState = 'running';
-            fadeTo(0.12, 0.8);
+            fadeTo(isIOSWebKit ? 0.16 : 0.12, 0.8);
             startTimer();
+
+            if (stateWatchdogId) {
+              window.clearTimeout(stateWatchdogId);
+            }
+            stateWatchdogId = window.setTimeout(() => {
+              if (!audioCtx || sessionState !== 'running') return;
+              if (audioCtx.state !== 'running') {
+                showRuntimeHint('Похоже, звук не активировался. Нажми «Продолжить». Если это iPhone — проверь беззвучный режим и громкость.');
+              }
+            }, 1400);
 
             statusChip.textContent = 'Идёт сессия';
             startBtn.disabled = true;
@@ -553,6 +710,9 @@
           } catch (error) {
             timerCopy.textContent = error.message || 'Не удалось запустить аудио.';
             statusChip.textContent = 'Требуется поддержка Web Audio';
+            if (isIOSWebKit || isTelegramWebView) {
+              showRuntimeHint('Safari/WebView заблокировал звук. Нажми «Запуск» ещё раз и убедись, что звук iPhone не в беззвучном режиме.');
+            }
           }
         }
 
@@ -569,7 +729,12 @@
         }
 
         function resetSession(notify = true) {
+          modeSwitchToken += 1;
           stopTimer();
+          if (stateWatchdogId) {
+            window.clearTimeout(stateWatchdogId);
+            stateWatchdogId = null;
+          }
           sessionState = 'idle';
           totalSec = selectedDurationMin * 60;
           remainingSec = totalSec;
@@ -589,6 +754,7 @@
         }
 
         function completeSession() {
+          modeSwitchToken += 1;
           stopTimer();
           sessionState = 'completed';
           fadeTo(0.0001, 1.2);
@@ -643,15 +809,19 @@
         }
 
         modeButtons.forEach((btn) => {
-          btn.addEventListener('click', () => {
+          btn.addEventListener('click', async () => {
             selectedMode = btn.dataset.mode;
             favoriteMode = selectedMode;
             applySelectionUi();
             writeStorage({ lastMode: selectedMode, favoriteMode });
-            if (sessionState === 'idle') {
+
+            if (sessionState === 'running' || sessionState === 'paused') {
+              await switchModeLive(selectedMode);
+            } else if (sessionState === 'idle') {
               totalSec = selectedDurationMin * 60;
               remainingSec = totalSec;
             }
+
             updateTimerUi();
           });
         });
@@ -661,11 +831,22 @@
             selectedDurationMin = Number(btn.dataset.duration);
             applySelectionUi();
             writeStorage({ lastDuration: selectedDurationMin });
+
             if (sessionState === 'idle') {
               totalSec = selectedDurationMin * 60;
               remainingSec = totalSec;
-              updateTimerUi();
+            } else if (sessionState === 'running' || sessionState === 'paused') {
+              const elapsed = Math.max(0, totalSec - remainingSec);
+              totalSec = selectedDurationMin * 60;
+              remainingSec = Math.max(0, totalSec - elapsed);
+
+              if (remainingSec === 0) {
+                completeSession();
+                return;
+              }
             }
+
+            updateTimerUi();
           });
         });
 
@@ -679,12 +860,48 @@
         resetBtn.addEventListener('click', () => resetSession(true));
         saveFeedbackBtn.addEventListener('click', saveFeedback);
 
+        function installIOSWarmup() {
+          const warmup = async () => {
+            if (hasUnlockedAudio || !AudioCtx) return;
+            try {
+              await unlockAudioIfNeeded();
+            } catch {}
+          };
+
+          ['touchstart', 'pointerdown', 'click'].forEach((eventName) => {
+            document.addEventListener(eventName, warmup, { passive: true, once: true });
+          });
+        }
+
+        document.addEventListener('visibilitychange', async () => {
+          if (!audioCtx || sessionState !== 'running') return;
+          if (!document.hidden && (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted')) {
+            try {
+              await audioCtx.resume();
+            } catch {}
+          }
+        });
+
+        window.addEventListener('pageshow', async () => {
+          if (!audioCtx || sessionState !== 'running') return;
+          if (audioCtx.state !== 'running') {
+            try {
+              await audioCtx.resume();
+            } catch {}
+          }
+        });
+
         if (!AudioCtx) {
           startBtn.disabled = true;
           pauseBtn.disabled = true;
           resetBtn.disabled = true;
           statusChip.textContent = 'Web Audio не поддерживается';
           timerCopy.textContent = 'В этом браузере нет поддержки Web Audio API. UI и рефлексия доступны как fallback.';
+        } else {
+          installIOSWarmup();
+          if (isIOSWebKit || isTelegramWebView) {
+            showRuntimeHint('iPhone/WebView: для старта звука нужен первый тап. Если звука нет — проверь беззвучный режим и громкость.');
+          }
         }
 
         hydrate();
