@@ -126,6 +126,7 @@ Micro-product версия лендинга: **«польза в 1 клик»** 
 
 - Главная: `https://sdv-g-deploy.github.io/project-energy/`
 - 14-дневный протокол: `https://sdv-g-deploy.github.io/project-energy/protocol-14-days.html`
+- Audio States: `https://sdv-g-deploy.github.io/project-energy/audio-states.html`
 
 ## Локальный запуск
 
@@ -146,6 +147,7 @@ project-energy/
 ├── styles.css
 ├── app.js
 ├── protocol-14-days.html
+├── audio-states.html
 ├── content/
 │   ├── micro-actions.json
 │   ├── rewards-copy.json
@@ -230,6 +232,10 @@ project-energy/
       - `lastAction`, `lastActionAt`
     - `lastReturnIntentDate`, `lastReturnIntentAnchor`
 - `project-energy-metrics-v1` — события и агрегаты метрик (локальный analytics event log).
+- `project-energy-audio-states-v1` — настройки и заметки Audio States:
+  - `lastMode`, `lastDuration`, `favoriteMode`
+  - `preSessionState`, `postSessionState`
+  - `reflectionNote`, `feedbackSavedAt`, `lastPlayedAt`
 - `project-energy-experiments-v1` — assignment/экспозиции/goal-логи A/B тестов:
   - `assignments` (стабильный variant per experiment)
   - `exposures` (когда был показан experiment)

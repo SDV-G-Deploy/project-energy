@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PROJECT ENERGY — Audio States</title>
+    <meta
+      name="description"
+      content="Audio States для PROJECT ENERGY: мягкая звуковая поддержка для calm/focus/flow/sleep с локальным сохранением и мини-рефлексией."
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .audio-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .mode-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .mode-card {
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface-soft);
+        padding: 12px;
+      }
+
+      .mode-card h3 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+      }
+
+      .mode-card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .mini-chip {
+        border-radius: 999px;
+        border: 1px solid #bfd0ff;
+        background: #edf3ff;
+        color: #1b3ea9;
+        font-size: 0.75rem;
+        padding: 3px 8px;
+        font-weight: 600;
+      }
+
+      .builder-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .duration-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .timer-shell {
+        margin-top: 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px;
+        background: var(--surface-soft);
+      }
+
+      .timer-track {
+        width: 100%;
+        height: 10px;
+        border-radius: 999px;
+        background: #dde7fb;
+        overflow: hidden;
+      }
+
+      .timer-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #2559e6, #67a0ff);
+        transition: width 0.35s ease;
+      }
+
+      .timer-copy {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .controls {
+        display: grid;
+        gap: 8px;
+      }
+
+      .list-soft {
+        margin: 8px 0 0;
+        padding-left: 1.1rem;
+      }
+
+      .list-soft li + li {
+        margin-top: 6px;
+      }
+
+      .safety-box {
+        border: 1px solid #f3d7ad;
+        background: #fff8ee;
+      }
+
+      .feedback-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .feedback-field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .feedback-field select,
+      .feedback-field textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+        font: inherit;
+      }
+
+      .feedback-field textarea {
+        min-height: 84px;
+        resize: vertical;
+      }
+
+      .muted-note {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      @media (min-width: 720px) {
+        .mode-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .controls {
+          grid-template-columns: 1fr 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero card">
+        <p class="eyebrow">PROJECT ENERGY · audio states</p>
+        <h1>Аудио для спокойствия, фокуса и сна</h1>
+        <p class="subtitle">
+          Лёгкая звуковая среда для поддержки состояния: ритм, повторяемость и
+          мягкое переключение. Без внешних ассетов, всё работает локально в браузере.
+        </p>
+        <div class="audio-grid">
+          <a class="btn btn-secondary" href="index.html">← Вернуться на главную</a>
+        </div>
+      </header>
+
+      <section class="card" aria-labelledby="modes-title">
+        <div class="section-head">
+          <h2 id="modes-title">4 режима</h2>
+          <p class="status-chip">Быстрый выбор состояния</p>
+        </div>
+        <div class="mode-grid" role="group" aria-label="Режимы Audio States">
+          <article class="mode-card">
+            <h3>Calm <span class="mini-chip">спокойнее</span></h3>
+            <p>Мягкий шумовой фон и тёплый тон для замедления и снижения внутренней суеты.</p>
+          </article>
+          <article class="mode-card">
+            <h3>Focus <span class="mini-chip">собранность</span></h3>
+            <p>Ровный ритм и нейтральная звуковая опора, чтобы удерживать внимание в задаче.</p>
+          </article>
+          <article class="mode-card">
+            <h3>Flow <span class="mini-chip">ритм работы</span></h3>
+            <p>Пульсирующий, но ненавязчивый слой для поддержания темпа без перегруза.</p>
+          </article>
+          <article class="mode-card">
+            <h3>Sleep <span class="mini-chip">замедление</span></h3>
+            <p>Более тёмный и медленный фон для вечернего снижения активации и перехода ко сну.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="builder-title">
+        <div class="section-head">
+          <h2 id="builder-title">Собери сессию</h2>
+          <p class="status-chip" id="audio-status-chip">Готово к запуску</p>
+        </div>
+
+        <div class="builder-grid">
+          <div>
+            <p class="mode-label">Режим:</p>
+            <div class="mode-chips" id="mode-chips">
+              <button class="btn btn-chip" type="button" data-mode="calm" aria-pressed="false">Calm</button>
+              <button class="btn btn-chip" type="button" data-mode="focus" aria-pressed="false">Focus</button>
+              <button class="btn btn-chip" type="button" data-mode="flow" aria-pressed="false">Flow</button>
+              <button class="btn btn-chip" type="button" data-mode="sleep" aria-pressed="false">Sleep</button>
+            </div>
+          </div>
+
+          <div>
+            <p class="mode-label">Длительность:</p>
+            <div class="duration-chips" id="duration-chips">
+              <button class="btn btn-chip" type="button" data-duration="5" aria-pressed="false">5 минут</button>
+              <button class="btn btn-chip" type="button" data-duration="15" aria-pressed="false">15 минут</button>
+              <button class="btn btn-chip" type="button" data-duration="30" aria-pressed="false">30 минут</button>
+            </div>
+          </div>
+
+          <div class="feedback-field">
+            <label for="pre-session-state">Перед стартом: как состояние сейчас?</label>
+            <select id="pre-session-state">
+              <option value="">Выбери вариант</option>
+              <option value="перегружен">Перегружен(а)</option>
+              <option value="расфокус">Расфокус</option>
+              <option value="нормально">Нормально</option>
+              <option value="ровнее">Уже более-менее ровно</option>
+            </select>
+          </div>
+
+          <div class="controls">
+            <button class="btn btn-primary" id="start-btn" type="button">▶ Запуск</button>
+            <button class="btn btn-secondary" id="pause-btn" type="button" disabled>⏸ Пауза</button>
+            <button class="btn btn-secondary" id="reset-btn" type="button" disabled>↺ Сначала</button>
+          </div>
+
+          <div class="timer-shell" aria-live="polite">
+            <div class="timer-track" aria-hidden="true">
+              <div class="timer-fill" id="timer-fill"></div>
+            </div>
+            <p class="timer-copy" id="timer-copy">Выбери режим и длительность, затем запусти сессию.</p>
+          </div>
+
+          <p class="muted-note" id="last-used-note">Последний выбор пока не сохранён.</p>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="how-title">
+        <h2 id="how-title">Как это работает</h2>
+        <p class="muted-note">
+          Мы используем простую генерацию звука через Web Audio API: слои шума,
+          мягкие тоны и ритмические огибающие. Это не «взлом мозга», а аккуратная
+          звуковая среда для поддержки нужного состояния.
+        </p>
+      </section>
+
+      <section class="card" aria-labelledby="notice-title">
+        <h2 id="notice-title">Что обычно замечают</h2>
+        <ul class="list-soft">
+          <li>быстрее удаётся войти в задачу без лишних переключений;</li>
+          <li>легче отпустить фоновое напряжение после длинного дня;</li>
+          <li>проще выдерживать короткий ритм «одна сессия → одна маленькая цель».</li>
+        </ul>
+      </section>
+
+      <section class="card safety-box" aria-labelledby="safety-title">
+        <h2 id="safety-title">Важно</h2>
+        <ul class="list-soft">
+          <li>Не используй во время вождения и в ситуациях, где нужна постоянная высокая бдительность.</li>
+          <li>Это не медицинский инструмент и не замена профессиональной помощи.</li>
+          <li>Эффект индивидуален: подбирай режим и громкость под себя.</li>
+        </ul>
+      </section>
+
+      <section class="card" aria-labelledby="reflection-title">
+        <div class="section-head">
+          <h2 id="reflection-title">После сессии: мини-рефлексия</h2>
+          <p class="status-chip" id="reflection-chip">Опционально</p>
+        </div>
+        <div class="feedback-grid">
+          <div class="feedback-field">
+            <label for="post-session-state">Как сейчас состояние?</label>
+            <select id="post-session-state">
+              <option value="">Выбери вариант</option>
+              <option value="чуть спокойнее">Чуть спокойнее</option>
+              <option value="более собран">Более собран(а)</option>
+              <option value="сонливость">Появилась сонливость</option>
+              <option value="без изменений">Без заметных изменений</option>
+            </select>
+          </div>
+          <div class="feedback-field">
+            <label for="reflection-note">Короткая заметка (необязательно)</label>
+            <textarea id="reflection-note" placeholder="Например: Focus 15 минут помог спокойно добить одну задачу"></textarea>
+          </div>
+          <div class="controls" style="grid-template-columns: 1fr;">
+            <button class="btn btn-primary" id="save-feedback-btn" type="button">Сохранить рефлексию</button>
+          </div>
+          <p class="muted-note" id="feedback-status">После завершения сессии можно зафиксировать результат.</p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      (function () {
+        const STORAGE_KEY = 'project-energy-audio-states-v1';
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+
+        const modeButtons = Array.from(document.querySelectorAll('[data-mode]'));
+        const durationButtons = Array.from(document.querySelectorAll('[data-duration]'));
+        const preStateSelect = document.getElementById('pre-session-state');
+        const postStateSelect = document.getElementById('post-session-state');
+        const reflectionNote = document.getElementById('reflection-note');
+
+        const startBtn = document.getElementById('start-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const saveFeedbackBtn = document.getElementById('save-feedback-btn');
+
+        const timerFill = document.getElementById('timer-fill');
+        const timerCopy = document.getElementById('timer-copy');
+        const statusChip = document.getElementById('audio-status-chip');
+        const feedbackStatus = document.getElementById('feedback-status');
+        const reflectionChip = document.getElementById('reflection-chip');
+        const lastUsedNote = document.getElementById('last-used-note');
+
+        const modeConfigs = {
+          calm: { baseFreq: 160, lfoHz: 0.08, noiseGain: 0.035, toneGain: 0.04, lowpass: 850 },
+          focus: { baseFreq: 220, lfoHz: 0.18, noiseGain: 0.03, toneGain: 0.03, lowpass: 1500 },
+          flow: { baseFreq: 180, lfoHz: 0.22, noiseGain: 0.04, toneGain: 0.035, lowpass: 1200 },
+          sleep: { baseFreq: 110, lfoHz: 0.05, noiseGain: 0.045, toneGain: 0.025, lowpass: 600 }
+        };
+
+        let selectedMode = 'calm';
+        let selectedDurationMin = 15;
+        let favoriteMode = '';
+
+        let audioCtx = null;
+        let masterGain = null;
+        let noiseSource = null;
+        let toneA = null;
+        let toneB = null;
+        let lfo = null;
+        let lfoGain = null;
+        let noiseFilter = null;
+
+        let sessionState = 'idle';
+        let totalSec = selectedDurationMin * 60;
+        let remainingSec = totalSec;
+        let timerId = null;
+        let startedAt = 0;
+
+        function readStorage() {
+          try {
+            return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+          } catch {
+            return {};
+          }
+        }
+
+        function writeStorage(patch) {
+          const current = readStorage();
+          const next = { ...current, ...patch };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+          return next;
+        }
+
+        function setPressed(buttons, predicate) {
+          buttons.forEach((btn) => {
+            btn.setAttribute('aria-pressed', predicate(btn) ? 'true' : 'false');
+          });
+        }
+
+        function formatTime(seconds) {
+          const safe = Math.max(0, Math.floor(seconds));
+          const m = Math.floor(safe / 60);
+          const s = safe % 60;
+          return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function updateTimerUi() {
+          const elapsed = totalSec - remainingSec;
+          const progress = totalSec ? Math.min(100, (elapsed / totalSec) * 100) : 0;
+          timerFill.style.width = `${progress}%`;
+          timerCopy.textContent = `Режим ${selectedMode.toUpperCase()} · осталось ${formatTime(remainingSec)}`;
+        }
+
+        function ensureAudio() {
+          if (!AudioCtx) {
+            throw new Error('Ваш браузер не поддерживает Web Audio API.');
+          }
+          if (!audioCtx) {
+            audioCtx = new AudioCtx();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.0001;
+            masterGain.connect(audioCtx.destination);
+          }
+          return audioCtx;
+        }
+
+        function buildNoiseBuffer(context) {
+          const size = context.sampleRate * 2;
+          const buffer = context.createBuffer(1, size, context.sampleRate);
+          const data = buffer.getChannelData(0);
+          let prev = 0;
+          for (let i = 0; i < size; i += 1) {
+            const white = Math.random() * 2 - 1;
+            prev = (prev + 0.02 * white) / 1.02;
+            data[i] = prev * 3.5;
+          }
+          return buffer;
+        }
+
+        function stopAudioGraph() {
+          [noiseSource, toneA, toneB, lfo].forEach((node) => {
+            try {
+              if (node) node.stop();
+            } catch {}
+          });
+          [noiseSource, toneA, toneB, lfo, lfoGain, noiseFilter].forEach((node) => {
+            try {
+              if (node) node.disconnect();
+            } catch {}
+          });
+          noiseSource = null;
+          toneA = null;
+          toneB = null;
+          lfo = null;
+          lfoGain = null;
+          noiseFilter = null;
+        }
+
+        function buildAudioGraph(mode) {
+          const context = ensureAudio();
+          const cfg = modeConfigs[mode] || modeConfigs.calm;
+
+          stopAudioGraph();
+
+          noiseSource = context.createBufferSource();
+          noiseSource.buffer = buildNoiseBuffer(context);
+          noiseSource.loop = true;
+
+          noiseFilter = context.createBiquadFilter();
+          noiseFilter.type = 'lowpass';
+          noiseFilter.frequency.value = cfg.lowpass;
+
+          const noiseGain = context.createGain();
+          noiseGain.gain.value = cfg.noiseGain;
+
+          toneA = context.createOscillator();
+          toneA.type = mode === 'sleep' ? 'sine' : 'triangle';
+          toneA.frequency.value = cfg.baseFreq;
+
+          toneB = context.createOscillator();
+          toneB.type = 'sine';
+          toneB.frequency.value = cfg.baseFreq * (mode === 'focus' ? 1.5 : 1.25);
+
+          const toneGainA = context.createGain();
+          toneGainA.gain.value = cfg.toneGain;
+
+          const toneGainB = context.createGain();
+          toneGainB.gain.value = cfg.toneGain * 0.6;
+
+          lfo = context.createOscillator();
+          lfo.type = 'sine';
+          lfo.frequency.value = cfg.lfoHz;
+          lfoGain = context.createGain();
+          lfoGain.gain.value = mode === 'flow' ? 18 : 10;
+
+          lfo.connect(lfoGain);
+          lfoGain.connect(toneA.frequency);
+
+          noiseSource.connect(noiseFilter);
+          noiseFilter.connect(noiseGain);
+          noiseGain.connect(masterGain);
+
+          toneA.connect(toneGainA);
+          toneGainA.connect(masterGain);
+
+          toneB.connect(toneGainB);
+          toneGainB.connect(masterGain);
+
+          noiseSource.start();
+          toneA.start();
+          toneB.start();
+          lfo.start();
+        }
+
+        function fadeTo(value, sec) {
+          if (!masterGain || !audioCtx) return;
+          const now = audioCtx.currentTime;
+          masterGain.gain.cancelScheduledValues(now);
+          masterGain.gain.setValueAtTime(masterGain.gain.value, now);
+          masterGain.gain.linearRampToValueAtTime(value, now + sec);
+        }
+
+        function stopTimer() {
+          if (timerId) {
+            window.clearInterval(timerId);
+            timerId = null;
+          }
+        }
+
+        function startTimer() {
+          stopTimer();
+          startedAt = Date.now();
+          timerId = window.setInterval(() => {
+            if (sessionState !== 'running') return;
+            remainingSec = Math.max(0, remainingSec - 1);
+            updateTimerUi();
+            if (remainingSec <= 0) {
+              completeSession();
+            }
+          }, 1000);
+        }
+
+        function applySelectionUi() {
+          setPressed(modeButtons, (btn) => btn.dataset.mode === selectedMode);
+          setPressed(durationButtons, (btn) => Number(btn.dataset.duration) === selectedDurationMin);
+          if (sessionState === 'idle') {
+            timerCopy.textContent = `Режим ${selectedMode.toUpperCase()} · длительность ${selectedDurationMin} мин`;
+          }
+        }
+
+        async function startSession() {
+          try {
+            const context = ensureAudio();
+            if (context.state === 'suspended') {
+              await context.resume();
+            }
+            if (sessionState === 'idle') {
+              totalSec = selectedDurationMin * 60;
+              remainingSec = totalSec;
+              buildAudioGraph(selectedMode);
+            }
+
+            sessionState = 'running';
+            fadeTo(0.12, 0.8);
+            startTimer();
+
+            statusChip.textContent = 'Идёт сессия';
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            resetBtn.disabled = false;
+            updateTimerUi();
+
+            writeStorage({
+              lastMode: selectedMode,
+              lastDuration: selectedDurationMin,
+              favoriteMode,
+              preSessionState: preStateSelect.value || '',
+              lastPlayedAt: new Date().toISOString()
+            });
+          } catch (error) {
+            timerCopy.textContent = error.message || 'Не удалось запустить аудио.';
+            statusChip.textContent = 'Требуется поддержка Web Audio';
+          }
+        }
+
+        function pauseSession() {
+          if (sessionState !== 'running') return;
+          sessionState = 'paused';
+          stopTimer();
+          fadeTo(0.0001, 0.6);
+
+          statusChip.textContent = 'Пауза';
+          startBtn.disabled = false;
+          startBtn.textContent = '▶ Продолжить';
+          pauseBtn.disabled = true;
+        }
+
+        function resetSession(notify = true) {
+          stopTimer();
+          sessionState = 'idle';
+          totalSec = selectedDurationMin * 60;
+          remainingSec = totalSec;
+          startBtn.disabled = false;
+          startBtn.textContent = '▶ Запуск';
+          pauseBtn.disabled = true;
+          resetBtn.disabled = true;
+          statusChip.textContent = 'Готово к запуску';
+
+          fadeTo(0.0001, 0.2);
+          window.setTimeout(stopAudioGraph, 260);
+
+          timerFill.style.width = '0%';
+          timerCopy.textContent = notify
+            ? 'Сессия сброшена. Можно запустить заново.'
+            : `Режим ${selectedMode.toUpperCase()} · длительность ${selectedDurationMin} мин`;
+        }
+
+        function completeSession() {
+          stopTimer();
+          sessionState = 'completed';
+          fadeTo(0.0001, 1.2);
+          window.setTimeout(stopAudioGraph, 1300);
+
+          statusChip.textContent = 'Сессия завершена';
+          reflectionChip.textContent = 'Рекомендуем зафиксировать эффект';
+          startBtn.disabled = false;
+          startBtn.textContent = '▶ Новая сессия';
+          pauseBtn.disabled = true;
+          resetBtn.disabled = false;
+
+          timerFill.style.width = '100%';
+          timerCopy.textContent = 'Готово. Сделай короткую отметку в рефлексии ниже.';
+        }
+
+        function saveFeedback() {
+          const payload = {
+            postSessionState: postStateSelect.value || '',
+            reflectionNote: reflectionNote.value.trim(),
+            feedbackSavedAt: new Date().toISOString()
+          };
+
+          writeStorage(payload);
+          feedbackStatus.textContent = payload.postSessionState
+            ? `Сохранено: «${payload.postSessionState}». Запись остаётся только локально.`
+            : 'Рефлексия сохранена локально.';
+        }
+
+        function hydrate() {
+          const saved = readStorage();
+
+          if (saved.lastMode && modeConfigs[saved.lastMode]) selectedMode = saved.lastMode;
+          if ([5, 15, 30].includes(Number(saved.lastDuration))) selectedDurationMin = Number(saved.lastDuration);
+          if (saved.favoriteMode && modeConfigs[saved.favoriteMode]) favoriteMode = saved.favoriteMode;
+          if (saved.preSessionState) preStateSelect.value = saved.preSessionState;
+          if (saved.postSessionState) postStateSelect.value = saved.postSessionState;
+          if (saved.reflectionNote) reflectionNote.value = saved.reflectionNote;
+
+          applySelectionUi();
+          totalSec = selectedDurationMin * 60;
+          remainingSec = totalSec;
+
+          const lastMeta = [];
+          if (saved.lastMode) lastMeta.push(`режим: ${saved.lastMode.toUpperCase()}`);
+          if (saved.lastDuration) lastMeta.push(`длительность: ${saved.lastDuration} мин`);
+          if (saved.favoriteMode) lastMeta.push(`любимый: ${saved.favoriteMode.toUpperCase()}`);
+
+          lastUsedNote.textContent = lastMeta.length
+            ? `Последние сохранённые настройки — ${lastMeta.join(' · ')}.`
+            : 'Последний выбор пока не сохранён.';
+        }
+
+        modeButtons.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            selectedMode = btn.dataset.mode;
+            favoriteMode = selectedMode;
+            applySelectionUi();
+            writeStorage({ lastMode: selectedMode, favoriteMode });
+            if (sessionState === 'idle') {
+              totalSec = selectedDurationMin * 60;
+              remainingSec = totalSec;
+            }
+            updateTimerUi();
+          });
+        });
+
+        durationButtons.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            selectedDurationMin = Number(btn.dataset.duration);
+            applySelectionUi();
+            writeStorage({ lastDuration: selectedDurationMin });
+            if (sessionState === 'idle') {
+              totalSec = selectedDurationMin * 60;
+              remainingSec = totalSec;
+              updateTimerUi();
+            }
+          });
+        });
+
+        startBtn.addEventListener('click', () => {
+          if (sessionState === 'running') return;
+          startBtn.textContent = '▶ Запуск';
+          startSession();
+        });
+
+        pauseBtn.addEventListener('click', pauseSession);
+        resetBtn.addEventListener('click', () => resetSession(true));
+        saveFeedbackBtn.addEventListener('click', saveFeedback);
+
+        if (!AudioCtx) {
+          startBtn.disabled = true;
+          pauseBtn.disabled = true;
+          resetBtn.disabled = true;
+          statusChip.textContent = 'Web Audio не поддерживается';
+          timerCopy.textContent = 'В этом браузере нет поддержки Web Audio API. UI и рефлексия доступны как fallback.';
+        }
+
+        hydrate();
+      })();
+    </script>
+  </body>
+</html>
