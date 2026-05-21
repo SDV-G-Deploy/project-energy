@@ -796,6 +796,43 @@ input:focus-visible {
   margin-top: 10px;
 }
 
+.mechanics {
+  border-color: #d3dfff;
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.mechanics-head {
+  margin-bottom: 8px;
+}
+
+.mechanics-lead {
+  margin: 0;
+  color: var(--muted);
+}
+
+.mechanics-grid {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.mechanic-item {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.mechanic-item h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.mechanic-item p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
 .reentry {
   border-color: #ffd5a8;
   background: #fffaf4;
